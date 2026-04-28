@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     if (!question) return res.status(400).json({ error: 'Missing question' });
 
     const ip = getIp(req);
-    const rl = checkRateLimit(ip, 60, 60); // 60 reqs per minute
+    const rl = await checkRateLimit(ip, 60, 60); // 60 reqs per minute (persistent when REDIS_URL set)
     res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
     res.setHeader('X-RateLimit-Reset', String(rl.resetSeconds));
     if (!rl.ok) return res.status(429).json({ error: 'Too many requests' });
