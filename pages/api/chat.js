@@ -36,9 +36,28 @@ export default async function handler(req, res) {
 
     // If RAG enabled, retrieve relevant chunks and include as context
     if (process.env.USE_RAG === 'true') {
-      const emb = await client.embeddings.create({ model: 'text-embedding-3-small', input: question });
-      const qvec = emb.data[0].embedding;
-      const top = await queryEmbedding(qvec, 6);
+      // Try to create an embedding (with model fallbacks). If embedding not available, fall back to text-match retrieval.
+      const preferred = process.env.EMBEDDING_MODEL ? process.env.EMBEDDING_MODEL.split(',') : ['text-embedding-3-small'];
+      const alternatives = ['text-embedding-3-large', 'text-embedding-3-small', 'text-embedding-ada-002'];
+      const modelsToTry = [...new Set([...preferred, ...alternatives])];
+      let emb = null;
+      for (const m of modelsToTry) {
+        try {
+          emb = await client.embeddings.create({ model: m, input: question });
+          break;
+        } catch (e) {
+          console.error(`embedding model ${m} failed:`, e?.message || e);
+        }
+      }
+
+      let top;
+      if (emb && emb.data && emb.data[0] && emb.data[0].embedding) {
+        const qvec = emb.data[0].embedding;
+        top = await queryEmbedding(qvec, 6);
+      } else {
+        console.warn('Embedding not available for query; using text-match fallback');
+        top = await queryEmbedding(question, 6);
+      }
 
       const contextText = top.map((t, i) => `Source ${i + 1} - ${t.meta?.file || 'unknown'}:page=${t.meta?.page} (score=${t.score?.toFixed(3)}):\n${t.text}\n---\n`).join('\n');
 
