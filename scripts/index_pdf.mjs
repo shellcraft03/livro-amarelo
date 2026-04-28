@@ -4,6 +4,13 @@ import pdf from 'pdf-parse';
 import OpenAI from 'openai';
 import { addItems } from '../lib/vectorStore.js';
 
+// Load environment from .env.local when present (allows running `node scripts/index_pdf.mjs`)
+try {
+  import('dotenv').then(d => d.config({ path: '.env.local' })).catch(() => {});
+} catch (e) {
+  // ignore
+}
+
 function chunkText(text, maxChars = 800) {
   const paragraphs = text.split(/\n{2,}|\r\n{2,}/g).map(p => p.trim()).filter(Boolean);
   const chunks = [];
@@ -34,8 +41,26 @@ async function indexPdf(filePath, title = null) {
     for (let j = 0; j < pageChunks.length; j++) {
       const text = pageChunks[j];
       try {
-        const emb = await client.embeddings.create({ model: 'text-embedding-3-small', input: text });
-        const vector = emb.data[0].embedding;
+          // try configured embedding model(s)
+          const preferred = process.env.EMBEDDING_MODEL ? process.env.EMBEDDING_MODEL.split(',') : ['text-embedding-3-small'];
+          const alternatives = ['text-embedding-3-large', 'text-embedding-3-small', 'text-embedding-ada-002'];
+          const modelsToTry = [...new Set([...preferred, ...alternatives])];
+          let emb = null;
+          for (const m of modelsToTry) {
+            try {
+              emb = await client.embeddings.create({ model: m, input: text });
+              break;
+            } catch (e) {
+              // if model not available, try next
+              console.error(`embedding model ${m} failed:`, e.message || e);
+            }
+          }
+          let vector = null;
+          if (emb && emb.data && emb.data[0] && emb.data[0].embedding) {
+            vector = emb.data[0].embedding;
+          } else {
+            console.warn('No embedding created for chunk; storing text-only chunk for text-based search fallback');
+          }
         items.push({ id: `${path.basename(filePath)}-${i}-${j}-${Date.now()}`, text, embedding: vector, meta: { file: path.basename(filePath), page: i+1, chunk: j, title } });
       } catch (err) {
         console.error('embedding error', err);
