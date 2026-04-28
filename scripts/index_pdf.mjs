@@ -49,11 +49,32 @@ async function indexPdf(filePath, title = null) {
 
 // CLI
 const args = process.argv.slice(2);
-if (args.length < 1) {
-  console.log('Usage: node scripts/index_pdf.mjs <path/to/file.pdf> [title]');
-  process.exit(1);
-}
-const filePath = args[0];
-const title = args[1] || null;
+// If no args provided, index all PDFs in data/books
+async function indexFromArgs() {
+  if (args.length === 0) {
+    const dir = path.join(process.cwd(), 'data', 'books');
+    try {
+      const files = await fs.readdir(dir);
+      const pdfs = files.filter(f => f.toLowerCase().endsWith('.pdf'));
+      if (pdfs.length === 0) {
+        console.log('No PDF files found in data/books');
+        return;
+      }
+      for (const p of pdfs) {
+        const full = path.join(dir, p);
+        console.log('Indexing', full);
+        await indexPdf(full, p.replace(/\.pdf$/i, ''));
+      }
+      return;
+    } catch (err) {
+      console.error('Failed to read data/books:', err);
+      process.exit(1);
+    }
+  }
 
-indexPdf(filePath, title).catch(err => { console.error(err); process.exit(1); });
+  const filePath = args[0];
+  const title = args[1] || null;
+  await indexPdf(filePath, title);
+}
+
+indexFromArgs().catch(err => { console.error(err); process.exit(1); });

@@ -6,7 +6,8 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000"
-    ,"index:pdf":"node scripts/index_pdf.mjs"
+    ,"index:pdf":"node scripts/index_pdf.mjs",
+    "index:pdfs":"node scripts/index_pdf.mjs"
   },
   "dependencies": {
     "formidable": "latest",
