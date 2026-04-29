@@ -18,6 +18,8 @@ function sanitizeQuestion(raw) {
 }
 
 export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
   try {
     const { question: rawQuestion, turnstileToken } = req.body || {};
     if (!rawQuestion) return res.status(400).json({ error: 'Missing question' });
@@ -26,10 +28,16 @@ export default async function handler(req, res) {
     if (!question) return res.status(400).json({ error: 'Question is empty' });
 
     const ip = getIp(req);
-    const rl = await checkRateLimit(ip, 60, 60);
+
+    // Per-minute limit: 10 requests / 60s
+    const rl = await checkRateLimit(ip, 10, 60);
     res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
     res.setHeader('X-RateLimit-Reset', String(rl.resetSeconds));
     if (!rl.ok) return res.status(429).json({ error: 'Too many requests' });
+
+    // Daily limit: 50 requests / 24h
+    const daily = await checkRateLimit(`${ip}:day`, 50, 86400);
+    if (!daily.ok) return res.status(429).json({ error: 'Daily limit reached' });
 
     const okRes = await verifyTurnstile(turnstileToken);
     if (!okRes.ok) {
@@ -71,7 +79,7 @@ export default async function handler(req, res) {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 800
+        max_tokens: 600
       });
 
       const text = chat.choices?.[0]?.message?.content || '';
@@ -86,7 +94,7 @@ export default async function handler(req, res) {
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `Question: """${question}"""\nAnswer:` }
       ],
-      max_tokens: 800
+      max_tokens: 600
     });
 
     const text = chat.choices?.[0]?.message?.content || '';
