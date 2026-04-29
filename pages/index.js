@@ -47,7 +47,6 @@ export default function Entry() {
             </div>
 
             <p style={s.leftFooter}>
-              Livro Amarelo · Partido Missão<br />
               Brasil · 2026
             </p>
           </div>
