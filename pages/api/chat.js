@@ -20,7 +20,12 @@ function getIp(req) {
 }
 
 function sanitizeQuestion(raw) {
-  return raw.toString().trim().slice(0, MAX_QUESTION_LENGTH);
+  return raw
+    .toString()
+    .trim()
+    .slice(0, MAX_QUESTION_LENGTH)
+    .replace(/\n{3,}/g, '\n\n') // collapse excessive newlines
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // strip control characters
 }
 
 export default async function handler(req, res) {
@@ -106,7 +111,7 @@ export default async function handler(req, res) {
     const text = chat.choices?.[0]?.message?.content || '';
     res.json({ text });
   } catch (err) {
-    console.error(err);
+    console.error('chat error:', err?.message || err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
