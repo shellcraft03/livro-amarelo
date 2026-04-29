@@ -47,8 +47,8 @@ export default function Entry() {
             </div>
 
             <p style={s.leftFooter}>
-              Programa de Governo · Arthur do Val<br />
-              São Paulo · 2021–2024
+              Livro Amarelo · Partido Missão<br />
+              Brasil · 2026
             </p>
           </div>
         </div>
@@ -59,7 +59,7 @@ export default function Entry() {
             <div style={s.cardEyebrow}>Acesso ao sistema</div>
             <h2 style={s.cardTitle}>Verificação<br />necessária</h2>
             <p style={s.cardDesc}>
-              Confirme que você é humano para explorar as propostas do programa de governo.
+              Confirme que você é humano para explorar as propostas do Livro Amarelo.
             </p>
 
             <div style={s.divider} />

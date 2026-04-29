@@ -99,8 +99,8 @@ export default function QA() {
             <a href="/" style={s.headerLogo}>
               <img src="/cover.png" alt="" style={s.headerThumb} />
               <div>
-                <div style={s.headerTitle}>o Livro Amarelo</div>
-                <div style={s.headerSub}>Programa de Governo · Arthur do Val</div>
+                <div style={s.headerTitle}>O Livro Amarelo</div>
+                <div style={s.headerSub}>O Futuro é Glorioso</div>
               </div>
             </a>
             <span style={s.badge}>Q&A</span>
@@ -112,7 +112,7 @@ export default function QA() {
 
           {/* Input card */}
           <div style={s.inputCard}>
-            <label style={s.inputLabel}>Faça uma pergunta sobre o programa de governo</label>
+            <label style={s.inputLabel}>Faça uma pergunta sobre os temas tratados no Livro Amarelo</label>
             <div style={s.inputRow}>
               <input
                 ref={inputRef}
@@ -156,7 +156,7 @@ export default function QA() {
                 <span style={{ ...s.loadingDot, animationDelay: '180ms' }} />
                 <span style={{ ...s.loadingDot, animationDelay: '360ms' }} />
               </div>
-              <p style={s.loadingText}>Buscando no programa de governo…</p>
+              <p style={s.loadingText}>Buscando no Livro Amarelo…</p>
             </div>
           )}
 
@@ -206,7 +206,7 @@ export default function QA() {
             <div style={s.welcome}>
               <img src="/cover.png" alt="" style={s.welcomeImg} />
               <p style={s.welcomeText}>
-                Explore o Plano de Governo de Arthur do Val para São Paulo.
+                Explore o Livro Amarelo e suas propostas para o Brasil.
               </p>
             </div>
           )}
