@@ -2,6 +2,5 @@
 /.next
 .env.local
 /.env
-/data/store.json
 data/books/*.pdf
 .claude/
