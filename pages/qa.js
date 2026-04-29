@@ -17,6 +17,7 @@ export default function QA() {
   const [answer, setAnswer] = useState(null);
   const [loading, setLoading] = useState(false);
   const [askedQuestion, setAskedQuestion] = useState('');
+  const [copied, setCopied] = useState(false);
   const router = useRouter();
   const inputRef = useRef(null);
   const answerRef = useRef(null);
@@ -80,6 +81,147 @@ export default function QA() {
     setAnswer(null);
     setQ('');
     setTimeout(() => inputRef.current?.focus(), 50);
+  }
+
+  async function copyText() {
+    const text = `${askedQuestion}\n\n${answer.text}`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function downloadImage() {
+    const W = 1080;
+    const PAD = 72;
+    const CW = W - PAD * 2;
+    const HEADER_H = 100;
+    const FOOTER_H = 72;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = 4000; // oversized for measurement pass
+    const ctx = canvas.getContext('2d');
+
+    function wrapLines(text, font, maxW) {
+      ctx.font = font;
+      const lines = [];
+      for (const para of text.split('\n')) {
+        if (!para.trim()) { lines.push(null); continue; }
+        const words = para.split(' ');
+        let cur = '';
+        for (const word of words) {
+          const test = cur ? cur + ' ' + word : word;
+          if (ctx.measureText(test).width > maxW && cur) {
+            lines.push(cur);
+            cur = word;
+          } else {
+            cur = test;
+          }
+        }
+        if (cur) lines.push(cur);
+      }
+      return lines;
+    }
+
+    const FONT_Q = 'italic 500 30px Arial, sans-serif';
+    const FONT_A = '400 28px Arial, sans-serif';
+    const LH_Q = 44, LH_A = 42, LH_BLANK = 18;
+
+    const qLines = wrapLines(`"${askedQuestion}"`, FONT_Q, CW);
+    const aLines = wrapLines(answer.text, FONT_A, CW);
+
+    const qH = qLines.reduce((s, l) => s + (l === null ? LH_BLANK : LH_Q), 0);
+    const aH = aLines.reduce((s, l) => s + (l === null ? LH_BLANK : LH_A), 0);
+
+    const H = HEADER_H + 56 + 30 + 14 + qH + 44 + 4 + 44 + 30 + 14 + aH + 56 + FOOTER_H;
+    canvas.height = H;
+
+    // White background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, W, H);
+
+    // Header
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, HEADER_H);
+    ctx.fillStyle = '#FCBF22';
+    ctx.font = '900 36px Arial, sans-serif';
+    ctx.fillText('O LIVRO AMARELO', PAD, 60);
+    ctx.fillStyle = '#888888';
+    ctx.font = '400 18px Arial, sans-serif';
+    ctx.fillText('O Futuro é Glorioso', PAD, 84);
+
+    let y = HEADER_H + 56;
+
+    // PERGUNTA label
+    ctx.font = '700 15px Arial, sans-serif';
+    const plW = ctx.measureText('PERGUNTA').width + 20;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(PAD, y, plW, 28);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('PERGUNTA', PAD + 10, y + 19);
+    y += 28 + 14;
+
+    // Question text
+    ctx.font = FONT_Q;
+    ctx.fillStyle = '#333333';
+    for (const line of qLines) {
+      if (line === null) { y += LH_BLANK; continue; }
+      ctx.fillText(line, PAD, y + LH_Q - 10);
+      y += LH_Q;
+    }
+    y += 28;
+
+    // Yellow divider
+    ctx.fillStyle = '#FCBF22';
+    ctx.fillRect(PAD, y, CW, 4);
+    y += 4 + 36;
+
+    // RESPOSTA label
+    ctx.font = '700 15px Arial, sans-serif';
+    const rlW = ctx.measureText('RESPOSTA').width + 20;
+    ctx.fillStyle = '#FCBF22';
+    ctx.fillRect(PAD, y, rlW, 28);
+    ctx.fillStyle = '#000000';
+    ctx.fillText('RESPOSTA', PAD + 10, y + 19);
+    y += 28 + 14;
+
+    // Answer text
+    ctx.font = FONT_A;
+    ctx.fillStyle = '#111111';
+    for (const line of aLines) {
+      if (line === null) { y += LH_BLANK; continue; }
+      ctx.fillText(line, PAD, y + LH_A - 8);
+      y += LH_A;
+    }
+
+    // Footer
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, H - FOOTER_H, W, FOOTER_H);
+    ctx.fillStyle = '#FCBF22';
+    ctx.font = '700 18px Arial, sans-serif';
+    ctx.fillText('O Livro Amarelo', PAD, H - FOOTER_H + 44);
+    ctx.fillStyle = '#666666';
+    ctx.font = '400 16px Arial, sans-serif';
+    const right = 'Partido Missão · Brasil 2026';
+    ctx.fillText(right, W - PAD - ctx.measureText(right).width, H - FOOTER_H + 44);
+
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'livro-amarelo-resposta.jpg';
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/jpeg', 0.92);
   }
 
   const sources = (answer?.sources || []).filter(s => s.score > 0.1);
@@ -178,6 +320,15 @@ export default function QA() {
               </div>
               <div style={s.answerText}>{answer.text}</div>
 
+              {/* Share actions */}
+              <div style={s.shareRow}>
+                <button onClick={copyText} style={s.shareBtn}>
+                  {copied ? '✓ Copiado!' : 'Copiar texto'}
+                </button>
+                <button onClick={downloadImage} style={s.shareBtn}>
+                  Baixar imagem
+                </button>
+              </div>
 
               {/* New question */}
               <div style={s.newQRow}>
@@ -468,10 +619,26 @@ const s = {
     color: '#000000',
     fontWeight: 700,
   },
-  newQRow: {
+  shareRow: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
     marginTop: '20px',
     paddingTop: '16px',
     borderTop: '2px solid #F2F2F2',
+  },
+  shareBtn: {
+    padding: '8px 16px',
+    background: '#FCBF22',
+    border: '2px solid #000000',
+    borderRadius: '8px',
+    color: '#000000',
+    fontSize: '0.85rem',
+    cursor: 'pointer',
+    fontWeight: 700,
+  },
+  newQRow: {
+    marginTop: '10px',
   },
   newQBtn: {
     background: 'none',
