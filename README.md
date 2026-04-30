@@ -8,7 +8,6 @@ RAG (Retrieval-Augmented Generation) com OpenAI · Protegido por Cloudflare Turn
 
 ---
 
-![Paleta](https://img.shields.io/badge/cor-FCBF22-FCBF22?style=flat-square&labelColor=000000)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs)
 ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4.1--mini-412991?style=flat-square&logo=openai)
 ![License](https://img.shields.io/badge/licença-MIT-white?style=flat-square)
