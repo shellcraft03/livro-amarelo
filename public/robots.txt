@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /qa
+Disallow: /api/
+
+Sitemap: https://livroamarelo.com/sitemap.xml

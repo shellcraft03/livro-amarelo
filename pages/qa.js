@@ -231,6 +231,7 @@ export default function QA() {
       <Head>
         <title>o Livro Amarelo — Q&A</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex, nofollow" />
       </Head>
 
       <div style={s.page}>
