@@ -77,12 +77,6 @@ export default function QA() {
     ask(s);
   }
 
-  function resetQuestion() {
-    setAnswer(null);
-    setQ('');
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }
-
   async function copyText() {
     const text = `${askedQuestion}\n\n${answer.text}`;
     try {
@@ -246,7 +240,6 @@ export default function QA() {
                 <div style={s.headerSub}>O Futuro é Glorioso</div>
               </div>
             </a>
-            <span style={s.badge}>Q&A</span>
           </div>
         </header>
 
@@ -331,12 +324,6 @@ export default function QA() {
                 </button>
               </div>
 
-              {/* New question */}
-              <div style={s.newQRow}>
-                <button onClick={resetQuestion} style={s.newQBtn}>
-                  ← Nova pergunta
-                </button>
-              </div>
             </div>
           )}
 
@@ -407,16 +394,6 @@ const s = {
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
     marginTop: '1px',
-  },
-  badge: {
-    background: '#FCBF22',
-    color: '#000000',
-    borderRadius: '4px',
-    padding: '3px 10px',
-    fontSize: '0.7rem',
-    fontWeight: 800,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
   },
 
   /* ── Main ── */
@@ -638,20 +615,6 @@ const s = {
     cursor: 'pointer',
     fontWeight: 700,
   },
-  newQRow: {
-    marginTop: '10px',
-  },
-  newQBtn: {
-    background: 'none',
-    border: '2px solid #000000',
-    borderRadius: '8px',
-    color: '#000000',
-    fontSize: '0.85rem',
-    cursor: 'pointer',
-    padding: '8px 16px',
-    fontWeight: 700,
-  },
-
   /* Welcome */
   welcome: {
     textAlign: 'center',
