@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useTurnstile } from '../hooks/useTurnstile';
+import ShareBar from '../components/ShareBar';
 
 const MAX_QUESTION_LENGTH = 1000;
 
@@ -357,6 +358,10 @@ export default function QA() {
             </div>
           )}
 
+          <div style={s.shareWrap}>
+            <ShareBar />
+          </div>
+
         </main>
 
         <div id="turnstile-container-qa" style={{ display: 'none' }} />
@@ -655,6 +660,11 @@ const s = {
     fontWeight: 700,
   },
   /* Welcome */
+  shareWrap: {
+    marginTop: '32px',
+    paddingTop: '24px',
+    borderTop: '2px solid #EEEEEE',
+  },
   welcome: {
     textAlign: 'center',
     padding: '48px 24px 0',

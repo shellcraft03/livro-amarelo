@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useTurnstile } from '../hooks/useTurnstile';
+import ShareBar from '../components/ShareBar';
 
 export default function Entry() {
   const router = useRouter();
@@ -73,6 +74,9 @@ export default function Entry() {
             <p style={s.cardNote}>
               Seus dados não são armazenados.
             </p>
+
+            <div style={s.shareDivider} />
+            <ShareBar />
           </div>
         </div>
 
@@ -171,5 +175,10 @@ const s = {
     fontSize: '0.75rem',
     textAlign: 'center',
     marginTop: '14px',
+  },
+  shareDivider: {
+    height: '1px',
+    background: '#EEEEEE',
+    margin: '20px 0 4px',
   },
 };

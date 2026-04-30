@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import ShareBar from '../components/ShareBar';
 
 export default function Sobre() {
   const router = useRouter();
@@ -97,6 +98,8 @@ export default function Sobre() {
             Este projeto foi desenvolvido por um apoiador independente do Livro Amarelo.
             Não possui qualquer ligação formal com o Movimento Brasil Livre ou com a Missão.
           </div>
+
+          <ShareBar />
 
         </main>
       </div>
