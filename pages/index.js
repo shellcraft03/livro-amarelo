@@ -1,12 +1,37 @@
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useTurnstile } from '../hooks/useTurnstile';
 import ShareBar from '../components/ShareBar';
 
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <line x1="12" y1="2" x2="12" y2="6"/>
+      <line x1="12" y1="18" x2="12" y2="22"/>
+      <line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/>
+      <line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/>
+      <line x1="2" y1="12" x2="6" y2="12"/>
+      <line x1="18" y1="12" x2="22" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/>
+      <line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/>
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  );
+}
+
 export default function Entry() {
   const router = useRouter();
   const [pendingToken, setPendingToken] = useState(null);
+  const [dark, setDark] = useState(false);
 
   useTurnstile('turnstile-container', {
     onToken: (token) => {
@@ -14,11 +39,26 @@ export default function Entry() {
     }
   });
 
+  useEffect(() => {
+    const saved = localStorage.getItem('darkMode');
+    if (saved === 'true') setDark(true);
+  }, []);
+
+  function toggleDark() {
+    setDark(d => {
+      const next = !d;
+      localStorage.setItem('darkMode', String(next));
+      return next;
+    });
+  }
+
   function execute() {
     if (!pendingToken) return;
     sessionStorage.setItem('turnstileToken', pendingToken);
     router.push('/inicio');
   }
+
+  const s = getStyles(dark);
 
   return (
     <>
@@ -53,6 +93,11 @@ export default function Entry() {
 
         {/* Right panel — verification */}
         <div className="split-right" style={s.right}>
+
+          <button onClick={toggleDark} style={s.darkToggle} title={dark ? 'Modo claro' : 'Modo escuro'}>
+            {dark ? <SunIcon /> : <MoonIcon />}
+          </button>
+
           <div style={s.card}>
             <h2 style={s.cardTitle}>Verificação<br />necessária</h2>
             <p style={s.cardDesc}>
@@ -85,100 +130,125 @@ export default function Entry() {
   );
 }
 
-const s = {
-  page: {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  },
+function getStyles(dark) {
+  const rightBg   = dark ? '#111111' : '#FFFFFF';
+  const text1     = dark ? '#EEEEEE' : '#000000';
+  const textMuted = dark ? '#AAAAAA' : '#666666';
+  const textDim   = dark ? '#555555' : '#999999';
+  const divClr    = dark ? '#2A2A2A' : '#F2F2F2';
 
-  /* ── Left yellow panel ── */
-  left: {
-    background: '#ECCB00',
-  },
-  illustration: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    display: 'block',
-  },
-  /* ── Right white panel ── */
-  right: {
-    background: '#FFFFFF',
-  },
-  card: {
-    width: '100%',
-    maxWidth: '380px',
-  },
-  cardEyebrow: {
-    fontSize: '0.7rem',
-    fontWeight: 700,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    color: '#FCBF22',
-    background: '#000000',
-    display: 'inline-block',
-    padding: '4px 10px',
-    borderRadius: '4px',
-    marginBottom: '20px',
-  },
-  cardTitle: {
-    fontSize: 'clamp(2rem, 4vw, 3rem)',
-    fontWeight: 900,
-    color: '#000000',
-    letterSpacing: '-0.03em',
-    lineHeight: 1.05,
-    marginBottom: '16px',
-  },
-  cardDesc: {
-    color: '#666666',
-    fontSize: '0.95rem',
-    lineHeight: 1.6,
-    marginBottom: '28px',
-  },
-  divider: {
-    height: '2px',
-    background: '#F2F2F2',
-    marginBottom: '28px',
-  },
-  turnstileWrap: {
-    display: 'flex',
-    justifyContent: 'flex-start',
-    marginBottom: '20px',
-    minHeight: '65px',
-  },
-  btnActive: {
-    width: '100%',
-    padding: '16px 24px',
-    background: '#FCBF22',
-    color: '#000000',
-    border: '2px solid #000000',
-    borderRadius: '8px',
-    fontSize: '1rem',
-    fontWeight: 800,
-    cursor: 'pointer',
-    letterSpacing: '-0.01em',
-    transition: 'transform 0.1s',
-  },
-  btnDisabled: {
-    width: '100%',
-    padding: '16px 24px',
-    background: '#F2F2F2',
-    color: '#999999',
-    border: '2px solid #F2F2F2',
-    borderRadius: '8px',
-    fontSize: '1rem',
-    fontWeight: 800,
-    cursor: 'not-allowed',
-    letterSpacing: '-0.01em',
-  },
-  cardNote: {
-    color: '#999999',
-    fontSize: '0.75rem',
-    textAlign: 'center',
-    marginTop: '14px',
-  },
-  shareDivider: {
-    height: '1px',
-    background: '#EEEEEE',
-    margin: '20px 0 4px',
-  },
-};
+  return {
+    page: {
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    },
+
+    left: {
+      background: '#ECCB00',
+    },
+    illustration: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      display: 'block',
+    },
+
+    right: {
+      background: rightBg,
+      position: 'relative',
+    },
+    darkToggle: {
+      position: 'absolute',
+      top: '20px',
+      right: '20px',
+      background: dark ? '#2A2A2A' : '#F0F0F0',
+      border: 'none',
+      cursor: 'pointer',
+      color: dark ? '#FCBF22' : '#888888',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '32px',
+      height: '32px',
+      borderRadius: '8px',
+      padding: 0,
+    },
+
+    card: {
+      width: '100%',
+      maxWidth: '380px',
+    },
+    cardEyebrow: {
+      fontSize: '0.7rem',
+      fontWeight: 700,
+      letterSpacing: '0.12em',
+      textTransform: 'uppercase',
+      color: '#FCBF22',
+      background: '#000000',
+      display: 'inline-block',
+      padding: '4px 10px',
+      borderRadius: '4px',
+      marginBottom: '20px',
+    },
+    cardTitle: {
+      fontSize: 'clamp(2rem, 4vw, 3rem)',
+      fontWeight: 900,
+      color: text1,
+      letterSpacing: '-0.03em',
+      lineHeight: 1.05,
+      marginBottom: '16px',
+    },
+    cardDesc: {
+      color: textMuted,
+      fontSize: '0.95rem',
+      lineHeight: 1.6,
+      marginBottom: '28px',
+    },
+    divider: {
+      height: '2px',
+      background: divClr,
+      marginBottom: '28px',
+    },
+    turnstileWrap: {
+      display: 'flex',
+      justifyContent: 'flex-start',
+      marginBottom: '20px',
+      minHeight: '65px',
+    },
+    btnActive: {
+      width: '100%',
+      padding: '16px 24px',
+      background: '#FCBF22',
+      color: '#000000',
+      border: '2px solid #000000',
+      borderRadius: '8px',
+      fontSize: '1rem',
+      fontWeight: 800,
+      cursor: 'pointer',
+      letterSpacing: '-0.01em',
+      transition: 'transform 0.1s',
+    },
+    btnDisabled: {
+      width: '100%',
+      padding: '16px 24px',
+      background: dark ? '#2A2A2A' : '#F2F2F2',
+      color: textDim,
+      border: `2px solid ${dark ? '#2A2A2A' : '#F2F2F2'}`,
+      borderRadius: '8px',
+      fontSize: '1rem',
+      fontWeight: 800,
+      cursor: 'not-allowed',
+      letterSpacing: '-0.01em',
+    },
+    cardNote: {
+      color: textDim,
+      fontSize: '0.75rem',
+      textAlign: 'center',
+      marginTop: '14px',
+    },
+    shareDivider: {
+      height: '1px',
+      background: divClr,
+      margin: '20px 0 4px',
+    },
+  };
+}

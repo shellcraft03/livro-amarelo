@@ -13,12 +13,37 @@ const SUGGESTIONS = [
   'Quais as propostas de mobilidade urbana?',
 ];
 
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <line x1="12" y1="2" x2="12" y2="6"/>
+      <line x1="12" y1="18" x2="12" y2="22"/>
+      <line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/>
+      <line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/>
+      <line x1="2" y1="12" x2="6" y2="12"/>
+      <line x1="18" y1="12" x2="22" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/>
+      <line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/>
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  );
+}
+
 export default function QA() {
   const [q, setQ] = useState('');
   const [answer, setAnswer] = useState(null);
   const [loading, setLoading] = useState(false);
   const [askedQuestion, setAskedQuestion] = useState('');
   const [copied, setCopied] = useState(false);
+  const [dark, setDark] = useState(false);
   const router = useRouter();
   const inputRef = useRef(null);
   const answerRef = useRef(null);
@@ -29,6 +54,19 @@ export default function QA() {
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
     if (!token) router.replace('/');
   }, [router]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('darkMode');
+    if (saved === 'true') setDark(true);
+  }, []);
+
+  function toggleDark() {
+    setDark(d => {
+      const next = !d;
+      localStorage.setItem('darkMode', String(next));
+      return next;
+    });
+  }
 
   function handleReset() {
     setQ('');
@@ -81,9 +119,9 @@ export default function QA() {
     }
   }
 
-  function useSuggestion(s) {
-    setQ(s);
-    ask(s);
+  function useSuggestion(sug) {
+    setQ(sug);
+    ask(sug);
   }
 
   async function copyText() {
@@ -111,7 +149,7 @@ export default function QA() {
 
     const canvas = document.createElement('canvas');
     canvas.width = W;
-    canvas.height = 4000; // oversized for measurement pass
+    canvas.height = 4000;
     const ctx = canvas.getContext('2d');
 
     function wrapLines(text, font, maxW) {
@@ -142,17 +180,15 @@ export default function QA() {
     const qLines = wrapLines(`"${askedQuestion}"`, FONT_Q, CW);
     const aLines = wrapLines(answer.text, FONT_A, CW);
 
-    const qH = qLines.reduce((s, l) => s + (l === null ? LH_BLANK : LH_Q), 0);
-    const aH = aLines.reduce((s, l) => s + (l === null ? LH_BLANK : LH_A), 0);
+    const qH = qLines.reduce((sum, l) => sum + (l === null ? LH_BLANK : LH_Q), 0);
+    const aH = aLines.reduce((sum, l) => sum + (l === null ? LH_BLANK : LH_A), 0);
 
     const H = HEADER_H + 56 + 30 + 14 + qH + 44 + 4 + 44 + 30 + 14 + aH + 56 + FOOTER_H;
     canvas.height = H;
 
-    // White background
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, W, H);
 
-    // Header
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, W, HEADER_H);
     ctx.fillStyle = '#FCBF22';
@@ -164,7 +200,6 @@ export default function QA() {
 
     let y = HEADER_H + 56;
 
-    // PERGUNTA label
     ctx.font = '700 15px Arial, sans-serif';
     const plW = ctx.measureText('PERGUNTA').width + 20;
     ctx.fillStyle = '#000000';
@@ -173,7 +208,6 @@ export default function QA() {
     ctx.fillText('PERGUNTA', PAD + 10, y + 19);
     y += 28 + 14;
 
-    // Question text
     ctx.font = FONT_Q;
     ctx.fillStyle = '#333333';
     for (const line of qLines) {
@@ -183,12 +217,10 @@ export default function QA() {
     }
     y += 28;
 
-    // Yellow divider
     ctx.fillStyle = '#FCBF22';
     ctx.fillRect(PAD, y, CW, 4);
     y += 4 + 36;
 
-    // RESPOSTA label
     ctx.font = '700 15px Arial, sans-serif';
     const rlW = ctx.measureText('RESPOSTA').width + 20;
     ctx.fillStyle = '#FCBF22';
@@ -197,7 +229,6 @@ export default function QA() {
     ctx.fillText('RESPOSTA', PAD + 10, y + 19);
     y += 28 + 14;
 
-    // Answer text
     ctx.font = FONT_A;
     ctx.fillStyle = '#111111';
     for (const line of aLines) {
@@ -206,7 +237,6 @@ export default function QA() {
       y += LH_A;
     }
 
-    // Footer
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, H - FOOTER_H, W, FOOTER_H);
     ctx.fillStyle = '#FCBF22';
@@ -227,7 +257,8 @@ export default function QA() {
     }, 'image/jpeg', 0.92);
   }
 
-  const sources = (answer?.sources || []).filter(s => s.score > 0.1);
+  const sources = (answer?.sources || []).filter(src => src.score > 0.1);
+  const s = getStyles(dark);
 
   return (
     <>
@@ -250,6 +281,9 @@ export default function QA() {
               </div>
             </a>
             <nav style={s.nav}>
+              <button onClick={toggleDark} style={s.darkToggle} title={dark ? 'Modo claro' : 'Modo escuro'}>
+                {dark ? <SunIcon /> : <MoonIcon />}
+              </button>
               <a
                 href="/inicio"
                 className="nav-link"
@@ -370,315 +404,340 @@ export default function QA() {
   );
 }
 
-const s = {
-  page: {
-    minHeight: '100vh',
-    background: '#F2F2F2',
-    display: 'flex',
-    flexDirection: 'column',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  },
+function getStyles(dark) {
+  const pageBg    = dark ? '#111111' : '#F2F2F2';
+  const headerBg  = dark ? '#1A1A1A' : '#FFFFFF';
+  const cardBg    = dark ? '#1A1A1A' : '#FFFFFF';
+  const cardBdr   = dark ? '#333333' : '#000000';
+  const text1     = dark ? '#EEEEEE' : '#000000';
+  const text2     = dark ? '#CCCCCC' : '#333333';
+  const textMuted = dark ? '#888888' : '#666666';
+  const textDim   = dark ? '#555555' : '#999999';
+  const inputBg   = dark ? '#0D0D0D' : '#FFFFFF';
+  const inputBdr  = dark ? '#444444' : '#000000';
+  const divider   = dark ? '#2A2A2A' : '#EEEEEE';
 
-  nav: {
-    display: 'flex',
-    gap: '24px',
-    alignItems: 'center',
-  },
-  navLink: {
-    color: '#999999',
-    textDecoration: 'none',
-    fontSize: '0.9rem',
-    fontWeight: 500,
-  },
-  navLinkActive: {
-    color: '#FCBF22',
-    textDecoration: 'none',
-    fontSize: '0.9rem',
-    fontWeight: 700,
-  },
+  return {
+    page: {
+      minHeight: '100vh',
+      background: pageBg,
+      display: 'flex',
+      flexDirection: 'column',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    },
 
-  /* ── Header ── */
-  header: {
-    background: '#000000',
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-  },
-  headerInner: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    padding: '12px 24px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerLogo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    textDecoration: 'none',
-  },
-  headerThumb: {
-    width: '36px',
-    height: '36px',
-    objectFit: 'cover',
-    borderRadius: '4px',
-    background: '#FCBF22',
-  },
-  headerTitle: {
-    color: '#FCBF22',
-    fontSize: '1rem',
-    fontWeight: 900,
-    letterSpacing: '-0.03em',
-  },
-  headerSub: {
-    color: '#666666',
-    fontSize: '0.68rem',
-    fontWeight: 500,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-    marginTop: '1px',
-  },
+    nav: {
+      display: 'flex',
+      gap: '20px',
+      alignItems: 'center',
+    },
+    darkToggle: {
+      background: dark ? '#2A2A2A' : '#F0F0F0',
+      border: 'none',
+      cursor: 'pointer',
+      color: dark ? '#FCBF22' : '#888888',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '32px',
+      height: '32px',
+      borderRadius: '8px',
+      padding: 0,
+      flexShrink: 0,
+    },
+    navLink: {
+      color: textMuted,
+      textDecoration: 'none',
+      fontSize: '0.9rem',
+      fontWeight: 500,
+    },
+    navLinkActive: {
+      color: text1,
+      textDecoration: 'underline',
+      textDecorationColor: '#FCBF22',
+      textDecorationThickness: '2px',
+      textUnderlineOffset: '4px',
+      fontSize: '0.9rem',
+      fontWeight: 700,
+    },
 
-  /* ── Main ── */
-  main: {
-    maxWidth: '800px',
-    width: '100%',
-    margin: '0 auto',
-    padding: '32px 24px 80px',
-    flex: 1,
-  },
+    header: {
+      background: headerBg,
+      borderBottom: '3px solid #FCBF22',
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
+    },
+    headerInner: {
+      maxWidth: '800px',
+      margin: '0 auto',
+      padding: '12px 24px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    headerLogo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      textDecoration: 'none',
+    },
+    headerThumb: {
+      width: '36px',
+      height: '36px',
+      objectFit: 'cover',
+      borderRadius: '4px',
+      background: '#FCBF22',
+    },
+    headerTitle: {
+      color: text1,
+      fontSize: '1rem',
+      fontWeight: 900,
+      letterSpacing: '-0.03em',
+    },
+    headerSub: {
+      color: textMuted,
+      fontSize: '0.68rem',
+      fontWeight: 500,
+      letterSpacing: '0.04em',
+      textTransform: 'uppercase',
+      marginTop: '1px',
+    },
 
-  /* Input */
-  inputCard: {
-    background: '#FFFFFF',
-    borderRadius: '12px',
-    padding: '24px',
-    marginBottom: '20px',
-    border: '2px solid #000000',
-  },
-  inputLabel: {
-    display: 'block',
-    fontSize: '0.8rem',
-    fontWeight: 700,
-    color: '#000000',
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    marginBottom: '12px',
-  },
-  inputRow: {},
-  input: {
-    flex: 1,
-    padding: '12px 16px',
-    border: '2px solid #000000',
-    borderRadius: '8px',
-    fontSize: '0.95rem',
-    outline: 'none',
-    color: '#000000',
-    background: '#FFFFFF',
-  },
-  btnActive: {
-    padding: '12px 22px',
-    background: '#FCBF22',
-    color: '#000000',
-    border: '2px solid #000000',
-    borderRadius: '8px',
-    fontSize: '0.95rem',
-    fontWeight: 800,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-    flexShrink: 0,
-  },
-  btnDisabled: {
-    padding: '12px 22px',
-    background: '#F2F2F2',
-    color: '#999999',
-    border: '2px solid #F2F2F2',
-    borderRadius: '8px',
-    fontSize: '0.95rem',
-    fontWeight: 800,
-    cursor: 'not-allowed',
-    whiteSpace: 'nowrap',
-    flexShrink: 0,
-  },
+    main: {
+      maxWidth: '800px',
+      width: '100%',
+      margin: '0 auto',
+      padding: '32px 24px 80px',
+      flex: 1,
+    },
 
-  /* Suggestions */
-  suggestSection: {
-    marginBottom: '28px',
-  },
-  suggestLabel: {
-    fontSize: '0.68rem',
-    fontWeight: 700,
-    color: '#666666',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    marginBottom: '10px',
-  },
-  suggestList: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '8px',
-  },
-  suggestBtn: {
-    padding: '8px 14px',
-    background: '#FFFFFF',
-    border: '2px solid #000000',
-    borderRadius: '20px',
-    fontSize: '0.85rem',
-    color: '#000000',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
+    inputCard: {
+      background: cardBg,
+      borderRadius: '12px',
+      padding: '24px',
+      marginBottom: '20px',
+      border: `2px solid ${cardBdr}`,
+    },
+    inputLabel: {
+      display: 'block',
+      fontSize: '0.8rem',
+      fontWeight: 700,
+      color: text1,
+      textTransform: 'uppercase',
+      letterSpacing: '0.06em',
+      marginBottom: '12px',
+    },
+    inputRow: {},
+    input: {
+      flex: 1,
+      padding: '12px 16px',
+      border: `2px solid ${inputBdr}`,
+      borderRadius: '8px',
+      fontSize: '0.95rem',
+      outline: 'none',
+      color: text1,
+      background: inputBg,
+    },
+    btnActive: {
+      padding: '12px 22px',
+      background: '#FCBF22',
+      color: '#000000',
+      border: '2px solid #000000',
+      borderRadius: '8px',
+      fontSize: '0.95rem',
+      fontWeight: 800,
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      flexShrink: 0,
+    },
+    btnDisabled: {
+      padding: '12px 22px',
+      background: dark ? '#2A2A2A' : '#F2F2F2',
+      color: textDim,
+      border: `2px solid ${dark ? '#2A2A2A' : '#F2F2F2'}`,
+      borderRadius: '8px',
+      fontSize: '0.95rem',
+      fontWeight: 800,
+      cursor: 'not-allowed',
+      whiteSpace: 'nowrap',
+      flexShrink: 0,
+    },
 
-  /* Loading */
-  loadingWrap: {
-    background: '#FFFFFF',
-    borderRadius: '12px',
-    padding: '48px 24px',
-    border: '2px solid #000000',
-    textAlign: 'center',
-    animation: 'fadeIn 0.3s ease',
-  },
-  loadingBar: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '8px',
-    marginBottom: '16px',
-  },
-  loadingDot: {
-    width: '12px',
-    height: '12px',
-    borderRadius: '50%',
-    background: '#FCBF22',
-    border: '2px solid #000000',
-    display: 'inline-block',
-    animation: 'pulse 1.2s ease-in-out infinite',
-  },
-  loadingText: {
-    color: '#666666',
-    fontSize: '0.9rem',
-    fontWeight: 500,
-  },
+    suggestSection: {
+      marginBottom: '28px',
+    },
+    suggestLabel: {
+      fontSize: '0.68rem',
+      fontWeight: 700,
+      color: textDim,
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+      marginBottom: '10px',
+    },
+    suggestList: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '8px',
+    },
+    suggestBtn: {
+      padding: '8px 14px',
+      background: cardBg,
+      border: `2px solid ${dark ? '#444444' : '#000000'}`,
+      borderRadius: '20px',
+      fontSize: '0.85rem',
+      color: text1,
+      cursor: 'pointer',
+      fontWeight: 600,
+    },
 
-  /* Answer */
-  answerCard: {
-    background: '#FFFFFF',
-    borderRadius: '12px',
-    padding: '28px',
-    border: '2px solid #000000',
-    animation: 'fadeIn 0.4s ease',
-  },
-  qRecap: {
-    marginBottom: '20px',
-  },
-  qRecapLabel: {
-    fontSize: '0.68rem',
-    fontWeight: 700,
-    color: '#FFFFFF',
-    background: '#000000',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    display: 'inline-block',
-    padding: '3px 8px',
-    borderRadius: '4px',
-    marginBottom: '8px',
-  },
-  qRecapText: {
-    color: '#333333',
-    fontSize: '0.95rem',
-    fontStyle: 'italic',
-    lineHeight: 1.5,
-  },
-  answerDivider: {
-    height: '2px',
-    background: '#FCBF22',
-    marginBottom: '20px',
-  },
-  answerHeader: {
-    marginBottom: '14px',
-  },
-  answerTag: {
-    fontSize: '0.68rem',
-    fontWeight: 700,
-    color: '#000000',
-    background: '#FCBF22',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    display: 'inline-block',
-    padding: '3px 8px',
-    borderRadius: '4px',
-  },
-  answerText: {
-    color: '#111111',
-    lineHeight: 1.8,
-    whiteSpace: 'pre-wrap',
-    fontSize: '0.95rem',
-  },
-  sourcesWrap: {
-    marginTop: '24px',
-    paddingTop: '20px',
-    borderTop: '2px solid #F2F2F2',
-  },
-  sourcesLabel: {
-    fontSize: '0.68rem',
-    fontWeight: 700,
-    color: '#666666',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    marginBottom: '10px',
-  },
-  sourcesList: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '6px',
-  },
-  sourceBadge: {
-    padding: '4px 12px',
-    background: '#FCBF22',
-    border: '2px solid #000000',
-    borderRadius: '20px',
-    fontSize: '0.75rem',
-    color: '#000000',
-    fontWeight: 700,
-  },
-  shareRow: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-    marginTop: '20px',
-    paddingTop: '16px',
-    borderTop: '2px solid #F2F2F2',
-  },
-  shareBtn: {
-    padding: '8px 16px',
-    background: '#FCBF22',
-    border: '2px solid #000000',
-    borderRadius: '8px',
-    color: '#000000',
-    fontSize: '0.85rem',
-    cursor: 'pointer',
-    fontWeight: 700,
-  },
-  /* Welcome */
-  shareWrap: {
-    marginTop: '32px',
-    paddingTop: '24px',
-    borderTop: '2px solid #EEEEEE',
-  },
-  welcome: {
-    textAlign: 'center',
-    padding: '48px 24px 0',
-  },
-  welcomeImg: {
-    width: '200px',
-    maxWidth: '60%',
-    display: 'block',
-    margin: '0 auto 20px',
-    opacity: 0.6,
-  },
-  welcomeText: {
-    fontSize: '0.95rem',
-    color: '#666666',
-    lineHeight: 1.6,
-  },
-};
+    loadingWrap: {
+      background: cardBg,
+      borderRadius: '12px',
+      padding: '48px 24px',
+      border: `2px solid ${cardBdr}`,
+      textAlign: 'center',
+      animation: 'fadeIn 0.3s ease',
+    },
+    loadingBar: {
+      display: 'flex',
+      justifyContent: 'center',
+      gap: '8px',
+      marginBottom: '16px',
+    },
+    loadingDot: {
+      width: '12px',
+      height: '12px',
+      borderRadius: '50%',
+      background: '#FCBF22',
+      border: '2px solid #000000',
+      display: 'inline-block',
+      animation: 'pulse 1.2s ease-in-out infinite',
+    },
+    loadingText: {
+      color: textMuted,
+      fontSize: '0.9rem',
+      fontWeight: 500,
+    },
+
+    answerCard: {
+      background: cardBg,
+      borderRadius: '12px',
+      padding: '28px',
+      border: `2px solid ${cardBdr}`,
+      animation: 'fadeIn 0.4s ease',
+    },
+    qRecap: {
+      marginBottom: '20px',
+    },
+    qRecapLabel: {
+      fontSize: '0.68rem',
+      fontWeight: 700,
+      color: '#FFFFFF',
+      background: '#000000',
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+      display: 'inline-block',
+      padding: '3px 8px',
+      borderRadius: '4px',
+      marginBottom: '8px',
+    },
+    qRecapText: {
+      color: text2,
+      fontSize: '0.95rem',
+      fontStyle: 'italic',
+      lineHeight: 1.5,
+    },
+    answerDivider: {
+      height: '2px',
+      background: '#FCBF22',
+      marginBottom: '20px',
+    },
+    answerHeader: {
+      marginBottom: '14px',
+    },
+    answerTag: {
+      fontSize: '0.68rem',
+      fontWeight: 700,
+      color: '#000000',
+      background: '#FCBF22',
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+      display: 'inline-block',
+      padding: '3px 8px',
+      borderRadius: '4px',
+    },
+    answerText: {
+      color: text2,
+      lineHeight: 1.8,
+      whiteSpace: 'pre-wrap',
+      fontSize: '0.95rem',
+    },
+    sourcesWrap: {
+      marginTop: '24px',
+      paddingTop: '20px',
+      borderTop: `2px solid ${divider}`,
+    },
+    sourcesLabel: {
+      fontSize: '0.68rem',
+      fontWeight: 700,
+      color: textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+      marginBottom: '10px',
+    },
+    sourcesList: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '6px',
+    },
+    sourceBadge: {
+      padding: '4px 12px',
+      background: '#FCBF22',
+      border: '2px solid #000000',
+      borderRadius: '20px',
+      fontSize: '0.75rem',
+      color: '#000000',
+      fontWeight: 700,
+    },
+    shareRow: {
+      display: 'flex',
+      gap: '8px',
+      flexWrap: 'wrap',
+      marginTop: '20px',
+      paddingTop: '16px',
+      borderTop: `2px solid ${divider}`,
+    },
+    shareBtn: {
+      padding: '8px 16px',
+      background: '#FCBF22',
+      border: '2px solid #000000',
+      borderRadius: '8px',
+      color: '#000000',
+      fontSize: '0.85rem',
+      cursor: 'pointer',
+      fontWeight: 700,
+    },
+    shareWrap: {
+      marginTop: '32px',
+      paddingTop: '24px',
+      borderTop: `2px solid ${divider}`,
+    },
+    welcome: {
+      textAlign: 'center',
+      padding: '48px 24px 0',
+    },
+    welcomeImg: {
+      width: '200px',
+      maxWidth: '60%',
+      display: 'block',
+      margin: '0 auto 20px',
+      opacity: 0.6,
+    },
+    welcomeText: {
+      fontSize: '0.95rem',
+      color: textMuted,
+      lineHeight: 1.6,
+    },
+  };
+}

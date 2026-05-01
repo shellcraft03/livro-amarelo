@@ -1,15 +1,55 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import ShareBar from '../components/ShareBar';
 
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <line x1="12" y1="2" x2="12" y2="6"/>
+      <line x1="12" y1="18" x2="12" y2="22"/>
+      <line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/>
+      <line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/>
+      <line x1="2" y1="12" x2="6" y2="12"/>
+      <line x1="18" y1="12" x2="22" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/>
+      <line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/>
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  );
+}
+
 export default function Sobre() {
+  const [dark, setDark] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
     if (!token) router.replace('/');
   }, [router]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('darkMode');
+    if (saved === 'true') setDark(true);
+  }, []);
+
+  function toggleDark() {
+    setDark(d => {
+      const next = !d;
+      localStorage.setItem('darkMode', String(next));
+      return next;
+    });
+  }
+
+  const s = getStyles(dark);
 
   return (
     <>
@@ -31,6 +71,9 @@ export default function Sobre() {
               </div>
             </a>
             <nav style={s.nav}>
+              <button onClick={toggleDark} style={s.darkToggle} title={dark ? 'Modo claro' : 'Modo escuro'}>
+                {dark ? <SunIcon /> : <MoonIcon />}
+              </button>
               <a href="/inicio" className="nav-link" style={s.navLink}>
                 Início
               </a>
@@ -107,157 +150,179 @@ export default function Sobre() {
   );
 }
 
-const s = {
-  page: {
-    minHeight: '100vh',
-    background: '#F2F2F2',
-    display: 'flex',
-    flexDirection: 'column',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  },
+function getStyles(dark) {
+  const pageBg    = dark ? '#111111' : '#F2F2F2';
+  const headerBg  = dark ? '#1A1A1A' : '#FFFFFF';
+  const cardBg    = dark ? '#1A1A1A' : '#FFFFFF';
+  const cardBdr   = dark ? '#333333' : '#000000';
+  const text1     = dark ? '#EEEEEE' : '#000000';
+  const textMuted = dark ? '#888888' : '#666666';
+  const textDim   = dark ? '#555555' : '#999999';
 
-  header: {
-    background: '#000000',
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-  },
-  headerInner: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    padding: '12px 24px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerLogo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    textDecoration: 'none',
-  },
-  headerThumb: {
-    width: '36px',
-    height: '36px',
-    objectFit: 'cover',
-    borderRadius: '4px',
-    background: '#FCBF22',
-  },
-  headerTitle: {
-    color: '#FCBF22',
-    fontSize: '1rem',
-    fontWeight: 900,
-    letterSpacing: '-0.03em',
-  },
-  headerSub: {
-    color: '#666666',
-    fontSize: '0.68rem',
-    fontWeight: 500,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-    marginTop: '1px',
-  },
+  return {
+    page: {
+      minHeight: '100vh',
+      background: pageBg,
+      display: 'flex',
+      flexDirection: 'column',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    },
 
-  nav: {
-    display: 'flex',
-    gap: '24px',
-    alignItems: 'center',
-  },
-  navLink: {
-    color: '#999999',
-    textDecoration: 'none',
-    fontSize: '0.9rem',
-    fontWeight: 500,
-  },
-  navLinkActive: {
-    color: '#FCBF22',
-    textDecoration: 'none',
-    fontSize: '0.9rem',
-    fontWeight: 700,
-  },
+    header: {
+      background: headerBg,
+      borderBottom: '3px solid #FCBF22',
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
+    },
+    headerInner: {
+      maxWidth: '800px',
+      margin: '0 auto',
+      padding: '12px 24px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    headerLogo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      textDecoration: 'none',
+    },
+    headerThumb: {
+      width: '36px',
+      height: '36px',
+      objectFit: 'cover',
+      borderRadius: '4px',
+      background: '#FCBF22',
+    },
+    headerTitle: {
+      color: text1,
+      fontSize: '1rem',
+      fontWeight: 900,
+      letterSpacing: '-0.03em',
+    },
+    headerSub: {
+      color: textMuted,
+      fontSize: '0.68rem',
+      fontWeight: 500,
+      letterSpacing: '0.04em',
+      textTransform: 'uppercase',
+      marginTop: '1px',
+    },
 
-  main: {
-    maxWidth: '800px',
-    width: '100%',
-    margin: '0 auto',
-    padding: '40px 24px 80px',
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-  },
+    nav: {
+      display: 'flex',
+      gap: '20px',
+      alignItems: 'center',
+    },
+    darkToggle: {
+      background: dark ? '#2A2A2A' : '#F0F0F0',
+      border: 'none',
+      cursor: 'pointer',
+      color: dark ? '#FCBF22' : '#888888',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '32px',
+      height: '32px',
+      borderRadius: '8px',
+      padding: 0,
+      flexShrink: 0,
+    },
+    navLink: {
+      color: textMuted,
+      textDecoration: 'none',
+      fontSize: '0.9rem',
+      fontWeight: 500,
+    },
+    navLinkActive: {
+      color: text1,
+      textDecoration: 'underline',
+      textDecorationColor: '#FCBF22',
+      textDecorationThickness: '2px',
+      textUnderlineOffset: '4px',
+      fontSize: '0.9rem',
+      fontWeight: 700,
+    },
 
-  card: {
-    background: '#FFFFFF',
-    borderRadius: '12px',
-    padding: '32px',
-    border: '2px solid #000000',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  title: {
-    fontSize: '1.5rem',
-    fontWeight: 900,
-    color: '#000000',
-    letterSpacing: '-0.03em',
-  },
-  desc: {
-    fontSize: '0.95rem',
-    color: '#333333',
-    lineHeight: 1.8,
-  },
+    main: {
+      maxWidth: '800px',
+      width: '100%',
+      margin: '0 auto',
+      padding: '40px 24px 80px',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '20px',
+    },
 
-  linksCard: {
-    background: '#FFFFFF',
-    borderRadius: '12px',
-    padding: '28px 32px',
-    border: '2px solid #000000',
-  },
-  linksTitle: {
-    fontSize: '0.68rem',
-    fontWeight: 700,
-    color: '#000000',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    marginBottom: '16px',
-  },
-  linksList: {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap',
-  },
-  linkBtnYellow: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 20px',
-    background: '#FCBF22',
-    color: '#000000',
-    border: '2px solid #000000',
-    borderRadius: '8px',
-    fontSize: '0.9rem',
-    fontWeight: 700,
-    textDecoration: 'none',
-  },
-  linkBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 20px',
-    background: '#000000',
-    color: '#FCBF22',
-    border: '2px solid #000000',
-    borderRadius: '8px',
-    fontSize: '0.9rem',
-    fontWeight: 700,
-    textDecoration: 'none',
-  },
-  disclaimer: {
-    fontSize: '0.8rem',
-    color: '#999999',
-    textAlign: 'center',
-    lineHeight: 1.6,
-    padding: '0 8px',
-  },
-};
+    card: {
+      background: cardBg,
+      borderRadius: '12px',
+      padding: '32px',
+      border: `2px solid ${cardBdr}`,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '16px',
+    },
+    desc: {
+      fontSize: '0.95rem',
+      color: dark ? '#CCCCCC' : '#333333',
+      lineHeight: 1.8,
+    },
+
+    linksCard: {
+      background: cardBg,
+      borderRadius: '12px',
+      padding: '28px 32px',
+      border: `2px solid ${cardBdr}`,
+    },
+    linksTitle: {
+      fontSize: '0.68rem',
+      fontWeight: 700,
+      color: text1,
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+      marginBottom: '16px',
+    },
+    linksList: {
+      display: 'flex',
+      gap: '12px',
+      flexWrap: 'wrap',
+    },
+    linkBtnYellow: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '10px 20px',
+      background: '#FCBF22',
+      color: '#000000',
+      border: '2px solid #000000',
+      borderRadius: '8px',
+      fontSize: '0.9rem',
+      fontWeight: 700,
+      textDecoration: 'none',
+    },
+    linkBtn: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '10px 20px',
+      background: '#000000',
+      color: '#FCBF22',
+      border: '2px solid #000000',
+      borderRadius: '8px',
+      fontSize: '0.9rem',
+      fontWeight: 700,
+      textDecoration: 'none',
+    },
+    disclaimer: {
+      fontSize: '0.8rem',
+      color: textDim,
+      textAlign: 'center',
+      lineHeight: 1.6,
+      padding: '0 8px',
+    },
+  };
+}
