@@ -1,53 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { useDarkMode } from '../hooks/useDarkMode';
+import Header from '../components/Header';
 import ShareBar from '../components/ShareBar';
 
-function SunIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="4"/>
-      <line x1="12" y1="2" x2="12" y2="6"/>
-      <line x1="12" y1="18" x2="12" y2="22"/>
-      <line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/>
-      <line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/>
-      <line x1="2" y1="12" x2="6" y2="12"/>
-      <line x1="18" y1="12" x2="22" y2="12"/>
-      <line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/>
-      <line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/>
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-    </svg>
-  );
-}
-
 export default function Sobre() {
-  const [dark, setDark] = useState(false);
+  const [dark, toggleDark] = useDarkMode();
   const router = useRouter();
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
     if (!token) router.replace('/');
   }, [router]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('darkMode');
-    if (saved === 'true') setDark(true);
-  }, []);
-
-  function toggleDark() {
-    setDark(d => {
-      const next = !d;
-      localStorage.setItem('darkMode', String(next));
-      return next;
-    });
-  }
 
   const s = getStyles(dark);
 
@@ -61,28 +26,7 @@ export default function Sobre() {
 
       <div style={s.page}>
 
-        <header style={s.header}>
-          <div style={s.headerInner}>
-            <a href="/" style={s.headerLogo}>
-              <img src="/cover.png" alt="" style={s.headerThumb} />
-              <div>
-                <div style={s.headerTitle}>O Livro Amarelo</div>
-                <div style={s.headerSub}>O Futuro é Glorioso</div>
-              </div>
-            </a>
-            <nav style={s.nav}>
-              <button onClick={toggleDark} style={s.darkToggle} title={dark ? 'Modo claro' : 'Modo escuro'}>
-                {dark ? <SunIcon /> : <MoonIcon />}
-              </button>
-              <a href="/inicio" className="nav-link" style={s.navLink}>
-                Início
-              </a>
-              <a href="/sobre" className="nav-link" style={s.navLinkActive}>
-                Sobre
-              </a>
-            </nav>
-          </div>
-        </header>
+        <Header currentPage="sobre" dark={dark} toggleDark={toggleDark} />
 
         <main style={s.main}>
 
@@ -151,13 +95,11 @@ export default function Sobre() {
 }
 
 function getStyles(dark) {
-  const pageBg    = dark ? '#111111' : '#F2F2F2';
-  const headerBg  = dark ? '#1A1A1A' : '#FFFFFF';
-  const cardBg    = dark ? '#1A1A1A' : '#FFFFFF';
-  const cardBdr   = dark ? '#333333' : '#000000';
-  const text1     = dark ? '#EEEEEE' : '#000000';
-  const textMuted = dark ? '#888888' : '#666666';
-  const textDim   = dark ? '#555555' : '#999999';
+  const pageBg  = dark ? '#111111' : '#F2F2F2';
+  const cardBg  = dark ? '#1A1A1A' : '#FFFFFF';
+  const cardBdr = dark ? '#333333' : '#000000';
+  const text1   = dark ? '#EEEEEE' : '#000000';
+  const textDim = dark ? '#555555' : '#999999';
 
   return {
     page: {
@@ -167,85 +109,6 @@ function getStyles(dark) {
       flexDirection: 'column',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     },
-
-    header: {
-      background: headerBg,
-      borderBottom: '3px solid #FCBF22',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-    },
-    headerInner: {
-      maxWidth: '800px',
-      margin: '0 auto',
-      padding: '12px 24px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    headerLogo: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      textDecoration: 'none',
-    },
-    headerThumb: {
-      width: '36px',
-      height: '36px',
-      objectFit: 'cover',
-      borderRadius: '4px',
-      background: '#FCBF22',
-    },
-    headerTitle: {
-      color: text1,
-      fontSize: '1rem',
-      fontWeight: 900,
-      letterSpacing: '-0.03em',
-    },
-    headerSub: {
-      color: textMuted,
-      fontSize: '0.68rem',
-      fontWeight: 500,
-      letterSpacing: '0.04em',
-      textTransform: 'uppercase',
-      marginTop: '1px',
-    },
-
-    nav: {
-      display: 'flex',
-      gap: '20px',
-      alignItems: 'center',
-    },
-    darkToggle: {
-      background: dark ? '#2A2A2A' : '#F0F0F0',
-      border: 'none',
-      cursor: 'pointer',
-      color: dark ? '#FCBF22' : '#888888',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '32px',
-      height: '32px',
-      borderRadius: '8px',
-      padding: 0,
-      flexShrink: 0,
-    },
-    navLink: {
-      color: textMuted,
-      textDecoration: 'none',
-      fontSize: '0.9rem',
-      fontWeight: 500,
-    },
-    navLinkActive: {
-      color: text1,
-      textDecoration: 'underline',
-      textDecorationColor: '#FCBF22',
-      textDecorationThickness: '2px',
-      textUnderlineOffset: '4px',
-      fontSize: '0.9rem',
-      fontWeight: 700,
-    },
-
     main: {
       maxWidth: '800px',
       width: '100%',
@@ -256,7 +119,6 @@ function getStyles(dark) {
       flexDirection: 'column',
       gap: '20px',
     },
-
     card: {
       background: cardBg,
       borderRadius: '12px',
@@ -271,7 +133,6 @@ function getStyles(dark) {
       color: dark ? '#CCCCCC' : '#333333',
       lineHeight: 1.8,
     },
-
     linksCard: {
       background: cardBg,
       borderRadius: '12px',

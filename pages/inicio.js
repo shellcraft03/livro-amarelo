@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useTurnstile } from '../hooks/useTurnstile';
+import { useDarkMode } from '../hooks/useDarkMode';
+import Header from '../components/Header';
 import ShareBar from '../components/ShareBar';
 
 const MAX_QUESTION_LENGTH = 1000;
@@ -13,59 +15,22 @@ const SUGGESTIONS = [
   'Quais as propostas de mobilidade urbana?',
 ];
 
-function SunIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="4"/>
-      <line x1="12" y1="2" x2="12" y2="6"/>
-      <line x1="12" y1="18" x2="12" y2="22"/>
-      <line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/>
-      <line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/>
-      <line x1="2" y1="12" x2="6" y2="12"/>
-      <line x1="18" y1="12" x2="22" y2="12"/>
-      <line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/>
-      <line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/>
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-    </svg>
-  );
-}
-
 export default function QA() {
   const [q, setQ] = useState('');
   const [answer, setAnswer] = useState(null);
   const [loading, setLoading] = useState(false);
   const [askedQuestion, setAskedQuestion] = useState('');
   const [copied, setCopied] = useState(false);
-  const [dark, setDark] = useState(false);
+  const [dark, toggleDark] = useDarkMode();
   const router = useRouter();
   const inputRef = useRef(null);
   const answerRef = useRef(null);
 
   const { getFreshToken } = useTurnstile('turnstile-container-qa');
 
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
-    if (!token) router.replace('/');
-  }, [router]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('darkMode');
-    if (saved === 'true') setDark(true);
-  }, []);
-
-  function toggleDark() {
-    setDark(d => {
-      const next = !d;
-      localStorage.setItem('darkMode', String(next));
-      return next;
-    });
+  // Redireciona para / se não houver token de verificação
+  if (typeof window !== 'undefined' && !sessionStorage.getItem('turnstileToken')) {
+    router.replace('/');
   }
 
   function handleReset() {
@@ -257,7 +222,6 @@ export default function QA() {
     }, 'image/jpeg', 0.92);
   }
 
-  const sources = (answer?.sources || []).filter(src => src.score > 0.1);
   const s = getStyles(dark);
 
   return (
@@ -270,39 +234,10 @@ export default function QA() {
 
       <div style={s.page}>
 
-        {/* ── Header ── */}
-        <header style={s.header}>
-          <div style={s.headerInner}>
-            <a href="/" style={s.headerLogo}>
-              <img src="/cover.png" alt="" style={s.headerThumb} />
-              <div>
-                <div style={s.headerTitle}>O Livro Amarelo</div>
-                <div style={s.headerSub}>O Futuro é Glorioso</div>
-              </div>
-            </a>
-            <nav style={s.nav}>
-              <button onClick={toggleDark} style={s.darkToggle} title={dark ? 'Modo claro' : 'Modo escuro'}>
-                {dark ? <SunIcon /> : <MoonIcon />}
-              </button>
-              <a
-                href="/inicio"
-                className="nav-link"
-                style={s.navLinkActive}
-                onClick={e => { e.preventDefault(); handleReset(); }}
-              >
-                Início
-              </a>
-              <a href="/sobre" className="nav-link" style={s.navLink}>
-                Sobre
-              </a>
-            </nav>
-          </div>
-        </header>
+        <Header currentPage="inicio" dark={dark} toggleDark={toggleDark} onCurrentPageClick={handleReset} />
 
-        {/* ── Main ── */}
         <main style={s.main}>
 
-          {/* Input card */}
           <div style={s.inputCard}>
             <label style={s.inputLabel}>Faça uma pergunta sobre os temas tratados no Livro Amarelo</label>
             <div className="input-row" style={s.inputRow}>
@@ -326,7 +261,6 @@ export default function QA() {
             </div>
           </div>
 
-          {/* Suggestions */}
           {!answer && !loading && (
             <div style={s.suggestSection}>
               <p style={s.suggestLabel}>Sugestões</p>
@@ -340,7 +274,6 @@ export default function QA() {
             </div>
           )}
 
-          {/* Loading */}
           {loading && (
             <div style={s.loadingWrap}>
               <div style={s.loadingBar}>
@@ -352,25 +285,17 @@ export default function QA() {
             </div>
           )}
 
-          {/* Answer */}
           {answer && !loading && (
             <div style={s.answerCard} ref={answerRef}>
-
-              {/* Question recap */}
               <div style={s.qRecap}>
                 <span style={s.qRecapLabel}>Pergunta</span>
                 <p style={s.qRecapText}>"{askedQuestion}"</p>
               </div>
-
               <div style={s.answerDivider} />
-
-              {/* Answer */}
               <div style={s.answerHeader}>
                 <span style={s.answerTag}>Resposta</span>
               </div>
               <div style={s.answerText}>{answer.text}</div>
-
-              {/* Share actions */}
               <div style={s.shareRow}>
                 <button onClick={copyText} style={s.shareBtn}>
                   {copied ? '✓ Copiado!' : 'Copiar texto'}
@@ -379,11 +304,9 @@ export default function QA() {
                   Baixar imagem
                 </button>
               </div>
-
             </div>
           )}
 
-          {/* Welcome */}
           {!answer && !loading && (
             <div style={s.welcome}>
               <p style={s.welcomeText}>
@@ -406,7 +329,6 @@ export default function QA() {
 
 function getStyles(dark) {
   const pageBg    = dark ? '#111111' : '#F2F2F2';
-  const headerBg  = dark ? '#1A1A1A' : '#FFFFFF';
   const cardBg    = dark ? '#1A1A1A' : '#FFFFFF';
   const cardBdr   = dark ? '#333333' : '#000000';
   const text1     = dark ? '#EEEEEE' : '#000000';
@@ -425,85 +347,6 @@ function getStyles(dark) {
       flexDirection: 'column',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     },
-
-    nav: {
-      display: 'flex',
-      gap: '20px',
-      alignItems: 'center',
-    },
-    darkToggle: {
-      background: dark ? '#2A2A2A' : '#F0F0F0',
-      border: 'none',
-      cursor: 'pointer',
-      color: dark ? '#FCBF22' : '#888888',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '32px',
-      height: '32px',
-      borderRadius: '8px',
-      padding: 0,
-      flexShrink: 0,
-    },
-    navLink: {
-      color: textMuted,
-      textDecoration: 'none',
-      fontSize: '0.9rem',
-      fontWeight: 500,
-    },
-    navLinkActive: {
-      color: text1,
-      textDecoration: 'underline',
-      textDecorationColor: '#FCBF22',
-      textDecorationThickness: '2px',
-      textUnderlineOffset: '4px',
-      fontSize: '0.9rem',
-      fontWeight: 700,
-    },
-
-    header: {
-      background: headerBg,
-      borderBottom: '3px solid #FCBF22',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-    },
-    headerInner: {
-      maxWidth: '800px',
-      margin: '0 auto',
-      padding: '12px 24px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    headerLogo: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      textDecoration: 'none',
-    },
-    headerThumb: {
-      width: '36px',
-      height: '36px',
-      objectFit: 'cover',
-      borderRadius: '4px',
-      background: '#FCBF22',
-    },
-    headerTitle: {
-      color: text1,
-      fontSize: '1rem',
-      fontWeight: 900,
-      letterSpacing: '-0.03em',
-    },
-    headerSub: {
-      color: textMuted,
-      fontSize: '0.68rem',
-      fontWeight: 500,
-      letterSpacing: '0.04em',
-      textTransform: 'uppercase',
-      marginTop: '1px',
-    },
-
     main: {
       maxWidth: '800px',
       width: '100%',
@@ -511,7 +354,6 @@ function getStyles(dark) {
       padding: '32px 24px 80px',
       flex: 1,
     },
-
     inputCard: {
       background: cardBg,
       borderRadius: '12px',
@@ -563,7 +405,6 @@ function getStyles(dark) {
       whiteSpace: 'nowrap',
       flexShrink: 0,
     },
-
     suggestSection: {
       marginBottom: '28px',
     },
@@ -590,7 +431,6 @@ function getStyles(dark) {
       cursor: 'pointer',
       fontWeight: 600,
     },
-
     loadingWrap: {
       background: cardBg,
       borderRadius: '12px',
@@ -619,7 +459,6 @@ function getStyles(dark) {
       fontSize: '0.9rem',
       fontWeight: 500,
     },
-
     answerCard: {
       background: cardBg,
       borderRadius: '12px',
@@ -673,33 +512,6 @@ function getStyles(dark) {
       whiteSpace: 'pre-wrap',
       fontSize: '0.95rem',
     },
-    sourcesWrap: {
-      marginTop: '24px',
-      paddingTop: '20px',
-      borderTop: `2px solid ${divider}`,
-    },
-    sourcesLabel: {
-      fontSize: '0.68rem',
-      fontWeight: 700,
-      color: textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: '0.1em',
-      marginBottom: '10px',
-    },
-    sourcesList: {
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '6px',
-    },
-    sourceBadge: {
-      padding: '4px 12px',
-      background: '#FCBF22',
-      border: '2px solid #000000',
-      borderRadius: '20px',
-      fontSize: '0.75rem',
-      color: '#000000',
-      fontWeight: 700,
-    },
     shareRow: {
       display: 'flex',
       gap: '8px',
@@ -726,13 +538,6 @@ function getStyles(dark) {
     welcome: {
       textAlign: 'center',
       padding: '48px 24px 0',
-    },
-    welcomeImg: {
-      width: '200px',
-      maxWidth: '60%',
-      display: 'block',
-      margin: '0 auto 20px',
-      opacity: 0.6,
     },
     welcomeText: {
       fontSize: '0.95rem',
