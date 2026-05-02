@@ -21,6 +21,7 @@ export default function QA() {
   const [loading, setLoading] = useState(false);
   const [askedQuestion, setAskedQuestion] = useState('');
   const [copied, setCopied] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState(null);
   const [dark, toggleDark] = useDarkMode();
   const router = useRouter();
   const inputRef = useRef(null);
@@ -48,6 +49,7 @@ export default function QA() {
     setLoading(true);
     setAskedQuestion(text);
     setAnswer(null);
+    setRateLimitError(null);
 
     const freshToken = await getFreshToken();
     if (!freshToken) {
@@ -68,6 +70,20 @@ export default function QA() {
       sessionStorage.removeItem('turnstileToken');
       alert('Verificação falhou ou expirou. Você será redirecionado.');
       router.replace('/');
+      return;
+    }
+
+    if (res.status === 429) {
+      const data = await res.json();
+      if (data.error === 'Daily limit reached') {
+        setRateLimitError('Limite diário de perguntas atingido. Volte amanhã.');
+      } else {
+        const reset = res.headers.get('X-RateLimit-Reset');
+        const secs = reset ? parseInt(reset, 10) : null;
+        const time = secs ? (secs < 60 ? `${secs} segundos` : `${Math.ceil(secs / 60)} minutos`) : 'alguns instantes';
+        setRateLimitError(`Muitas perguntas em pouco tempo. Tente novamente em ${time}.`);
+      }
+      setLoading(false);
       return;
     }
 
@@ -260,6 +276,13 @@ export default function QA() {
               </button>
             </div>
           </div>
+
+          {rateLimitError && (
+            <div style={s.rateLimitBanner}>
+              <span style={s.rateLimitLabel}>Limite atingido</span>
+              <p style={s.rateLimitText}>{rateLimitError}</p>
+            </div>
+          )}
 
           {!answer && !loading && (
             <div style={s.suggestSection}>
@@ -534,6 +557,31 @@ function getStyles(dark) {
       marginTop: '32px',
       paddingTop: '24px',
       borderTop: `2px solid ${divider}`,
+    },
+    rateLimitBanner: {
+      background: cardBg,
+      border: `2px solid ${cardBdr}`,
+      borderRadius: '12px',
+      padding: '16px 20px',
+      marginBottom: '20px',
+    },
+    rateLimitLabel: {
+      fontSize: '0.68rem',
+      fontWeight: 700,
+      color: '#000000',
+      background: '#FCBF22',
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+      display: 'inline-block',
+      padding: '3px 8px',
+      borderRadius: '4px',
+      marginBottom: '8px',
+    },
+    rateLimitText: {
+      color: text2,
+      fontSize: '0.9rem',
+      fontWeight: 600,
+      margin: 0,
     },
     welcome: {
       textAlign: 'center',

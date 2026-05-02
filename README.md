@@ -47,7 +47,7 @@ Esta aplicação web permite explorar o conteúdo do Livro Amarelo por meio de p
 | Embeddings | OpenAI text-embedding-3-small |
 | Vector store | Pinecone (banco de vetores em nuvem) |
 | CAPTCHA | Cloudflare Turnstile |
-| Rate limit | In-memory · Redis (opcional) |
+| Rate limit | Upstash Redis (serverless) · fallback em memória (dev local) |
 | Analytics | Google Analytics 4 |
 | PDF parsing | pdf-parse |
 
@@ -116,8 +116,9 @@ USE_RAG=true
 # Modelo de embedding (opcional — padrão: text-embedding-3-small)
 # EMBEDDING_MODEL=text-embedding-3-small
 
-# Redis para rate limiting distribuído (opcional)
-# REDIS_URL=redis://...
+# Upstash Redis para rate limiting distribuído
+UPSTASH_REDIS_REST_URL=https://...
+UPSTASH_REDIS_REST_TOKEN=...
 ```
 
 > **Pinecone:** crie um index no [console do Pinecone](https://app.pinecone.io) com dimensão **1536** (compatível com `text-embedding-3-small`) e região de sua preferência. Após indexar os PDFs localmente, execute o script de migração (seção 3b) para enviar os vetores ao Pinecone.
