@@ -99,7 +99,7 @@ export default function Entry() {
             </button>
 
             <p style={s.cardNote}>
-              Seus dados não são armazenados.
+              Apenas dados básicos e anônimos (como IP e métricas de desempenho) são coletados para manter a segurança e o funcionamento do site.
             </p>
 
             <div style={s.shareDivider} />
