@@ -63,8 +63,7 @@ livro-amarelo/
 │   ├── sobre.js              # Página sobre o projeto
 │   ├── _app.js               # App wrapper — CSS global + Google Analytics
 │   └── api/
-│       ├── chat.js           # Endpoint principal RAG + LLM
-│       └── ingest-pdf.js     # Endpoint de upload e indexação de PDF
+│       └── chat.js           # Endpoint principal RAG + LLM
 ├── hooks/
 │   └── useTurnstile.js       # Hook React para o widget Turnstile
 ├── lib/
