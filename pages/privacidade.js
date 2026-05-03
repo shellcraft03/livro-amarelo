@@ -164,15 +164,15 @@ function getStyles(dark) {
       gap: '6px',
     },
     link: {
-      color: '#FCBF22',
-      textDecoration: 'none',
+      color: dark ? '#FCBF22' : '#000000',
+      textDecoration: 'underline',
       fontWeight: 600,
     },
     linkBtn: {
       display: 'inline-flex',
       alignItems: 'center',
       gap: '6px',
-      color: '#FCBF22',
+      color: dark ? '#FCBF22' : '#000000',
       fontSize: '0.95rem',
       fontWeight: 700,
       textDecoration: 'none',
