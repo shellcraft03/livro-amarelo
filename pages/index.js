@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useTurnstile } from '../hooks/useTurnstile';
 import { useDarkMode } from '../hooks/useDarkMode';
@@ -42,7 +42,11 @@ export default function Entry() {
   const router = useRouter();
   const [pendingToken, setPendingToken] = useState(null);
   const [dark, toggleDark] = useDarkMode();
-  const [fasiculo] = useState(() => FASICULOS[Math.floor(Math.random() * FASICULOS.length)]);
+  const [fasiculo, setFasiculo] = useState(null);
+
+  useEffect(() => {
+    setFasiculo(FASICULOS[Math.floor(Math.random() * FASICULOS.length)]);
+  }, []);
 
   useTurnstile('turnstile-container', {
     onToken: (token) => {
@@ -81,7 +85,7 @@ export default function Entry() {
       <div className="split-page" style={s.page}>
 
         <div className="split-left" style={s.left}>
-          <img src={fasiculo} alt="o Livro Amarelo" style={s.illustration} />
+          {fasiculo && <img src={fasiculo} alt="o Livro Amarelo" style={s.illustration} />}
         </div>
 
         <div className="split-right" style={s.right}>
