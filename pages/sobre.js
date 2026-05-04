@@ -81,6 +81,21 @@ export default function Sobre() {
             </div>
           </div>
 
+          <div style={s.initiativeCard}>
+            <p style={s.initiativeDesc}>
+              Conheça outra iniciativa de apoiadores independentes da Missão, onde você encontra informações 
+              sobre os pré-candidatos por estado, além de notícias, artigos e conteúdos de ativismo.
+            </p>
+            <a
+              href="https://caminhodamissao.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={s.linkBtnYellow}
+            >
+              Caminho da Missão
+            </a>
+          </div>
+
           <div style={s.disclaimer}>
             Este projeto foi desenvolvido por um apoiador independente do Livro Amarelo.
             Não possui qualquer ligação formal com o Movimento Brasil Livre ou com a Missão.
@@ -177,6 +192,22 @@ function getStyles(dark) {
       fontSize: '0.9rem',
       fontWeight: 700,
       textDecoration: 'none',
+    },
+    initiativeCard: {
+      background: cardBg,
+      borderRadius: '12px',
+      padding: '28px 32px',
+      border: `2px solid ${cardBdr}`,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      gap: '16px',
+    },
+    initiativeDesc: {
+      fontSize: '0.95rem',
+      color: dark ? '#CCCCCC' : '#333333',
+      lineHeight: 1.8,
+      margin: 0,
     },
     disclaimer: {
       fontSize: '0.8rem',
