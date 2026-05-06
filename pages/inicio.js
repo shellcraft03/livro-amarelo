@@ -19,6 +19,7 @@ export default function QA() {
   const [q, setQ] = useState('');
   const [answer, setAnswer] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [askedQuestion, setAskedQuestion] = useState('');
   const [copied, setCopied] = useState(false);
   const [rateLimitError, setRateLimitError] = useState(null);
@@ -39,16 +40,18 @@ export default function QA() {
     setAnswer(null);
     setAskedQuestion('');
     setLoading(false);
+    setStreaming(false);
     setCopied(false);
   }
 
   async function ask(question) {
     const text = (question ?? q).trim().slice(0, MAX_QUESTION_LENGTH);
-    if (!text || loading) return;
+    if (!text || loading || streaming) return;
 
     setLoading(true);
     setAskedQuestion(text);
     setAnswer(null);
+    setStreaming(false);
     setRateLimitError(null);
 
     const freshToken = await getFreshToken();
@@ -67,6 +70,7 @@ export default function QA() {
     });
 
     if (res.status === 403) {
+      setLoading(false);
       sessionStorage.removeItem('turnstileToken');
       alert('Verificação falhou ou expirou. Você será redirecionado.');
       router.replace('/');
@@ -87,10 +91,55 @@ export default function QA() {
       return;
     }
 
-    const data = await res.json();
-    setAnswer(data);
+    if (!res.ok) {
+      setLoading(false);
+      setAnswer({ text: 'Erro ao processar a pergunta. Tente novamente.', sources: [] });
+      return;
+    }
+
     setLoading(false);
+    setStreaming(true);
+    setAnswer({ text: '', sources: null });
     setTimeout(() => answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const messages = buffer.split('\n\n');
+        buffer = messages.pop();
+
+        for (const msg of messages) {
+          if (!msg.startsWith('data: ')) continue;
+          let parsed;
+          try { parsed = JSON.parse(msg.slice(6).trim()); } catch { continue; }
+
+          if (parsed.token) {
+            setAnswer(prev => ({ ...prev, text: prev.text + parsed.token }));
+          }
+
+          if (parsed.done) {
+            setAnswer(prev => ({ ...prev, sources: parsed.sources || [] }));
+            setStreaming(false);
+          }
+
+          if (parsed.error) {
+            setAnswer(prev => ({ ...prev, text: prev.text || 'Erro ao gerar resposta. Tente novamente.' }));
+            setStreaming(false);
+          }
+        }
+      }
+    } catch (readErr) {
+      console.error('stream read error:', readErr);
+    } finally {
+      setStreaming(false);
+    }
   }
 
   function handleKeyDown(e) {
@@ -104,6 +153,8 @@ export default function QA() {
     setQ(sug);
     ask(sug);
   }
+
+  const isProcessing = loading || streaming;
 
   async function copyText() {
     const text = `${askedQuestion}\n\n${answer.text}`;
@@ -264,13 +315,13 @@ export default function QA() {
                 onKeyDown={handleKeyDown}
                 placeholder="Ex: Quais são as propostas para a saúde?"
                 maxLength={MAX_QUESTION_LENGTH}
-                disabled={loading}
+                disabled={isProcessing}
                 style={s.input}
               />
               <button
                 onClick={() => ask()}
-                disabled={loading || !q.trim()}
-                style={(loading || !q.trim()) ? s.btnDisabled : s.btnActive}
+                disabled={isProcessing || !q.trim()}
+                style={(isProcessing || !q.trim()) ? s.btnDisabled : s.btnActive}
               >
                 {loading ? '…' : 'Perguntar'}
               </button>
@@ -284,7 +335,7 @@ export default function QA() {
             </div>
           )}
 
-          {!answer && !loading && (
+          {!answer && !isProcessing && (
             <div style={s.suggestSection}>
               <p style={s.suggestLabel}>Sugestões</p>
               <div style={s.suggestList}>
@@ -308,7 +359,7 @@ export default function QA() {
             </div>
           )}
 
-          {answer && !loading && (
+          {answer && (
             <div style={s.answerCard} ref={answerRef}>
               <div style={s.qRecap}>
                 <span style={s.qRecapLabel}>Pergunta</span>
@@ -318,19 +369,22 @@ export default function QA() {
               <div style={s.answerHeader}>
                 <span style={s.answerTag}>Resposta</span>
               </div>
-              <div style={s.answerText}>{answer.text}</div>
+              <div style={s.answerText}>
+                {answer.text}
+                {streaming && <span className="cursor-blink">▌</span>}
+              </div>
               <div style={s.shareRow}>
-                <button onClick={copyText} style={s.shareBtn}>
+                <button onClick={copyText} disabled={streaming} style={streaming ? s.shareBtnDisabled : s.shareBtn}>
                   {copied ? '✓ Copiado!' : 'Copiar texto'}
                 </button>
-                <button onClick={downloadImage} style={s.shareBtn}>
+                <button onClick={downloadImage} disabled={streaming} style={streaming ? s.shareBtnDisabled : s.shareBtn}>
                   Baixar imagem
                 </button>
               </div>
             </div>
           )}
 
-          {!answer && !loading && (
+          {!answer && !isProcessing && (
             <div style={s.welcome}>
               <p style={s.welcomeText}>
                 Explore o Livro Amarelo e suas propostas para o Brasil.
@@ -551,6 +605,16 @@ function getStyles(dark) {
       color: '#000000',
       fontSize: '0.85rem',
       cursor: 'pointer',
+      fontWeight: 700,
+    },
+    shareBtnDisabled: {
+      padding: '8px 16px',
+      background: dark ? '#2A2A2A' : '#F2F2F2',
+      border: `2px solid ${dark ? '#2A2A2A' : '#F2F2F2'}`,
+      borderRadius: '8px',
+      color: textDim,
+      fontSize: '0.85rem',
+      cursor: 'not-allowed',
       fontWeight: 700,
     },
     shareWrap: {

@@ -25,6 +25,7 @@ export const config = {
     bodyParser: {
       sizeLimit: '2kb',
     },
+    responseLimit: false,
   },
 };
 
@@ -37,12 +38,12 @@ function getIp(req) {
 function sanitizeQuestion(raw) {
   return raw
     .toString()
-    .normalize('NFKC')                                        // normalize unicode (fullwidth, lookalikes, etc.)
+    .normalize('NFKC')
     .trim()
     .slice(0, MAX_QUESTION_LENGTH)
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')      // strip control characters
-    .replace(/\n{3,}/g, '\n\n')                               // collapse excessive newlines
-    .replace(/[^a-zA-ZÀ-ú0-9\s.,!?;:()\-'"/%\n]/g, '');    // allowlist: strip chars outside Portuguese set
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[^a-zA-ZÀ-ú0-9\s.,!?;:()\-'"/%\n]/g, '');
 }
 
 export default async function handler(req, res) {
@@ -66,7 +67,6 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Turnstile verification failed' });
     }
 
-    // Per-minute limit: 10 requests / 60s
     const rl = await checkMinuteLimit(ip);
     res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
     res.setHeader('X-RateLimit-Reset', String(rl.resetSeconds));
@@ -76,13 +76,15 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: 'Too many requests' });
     }
 
-    // Daily limit: 50 requests / 24h
     const daily = await checkDailyLimit(ip);
     if (!daily.ok) {
       console.warn(`[rate-limit] daily ip=${ip} remaining=${daily.remaining} reset=${daily.resetSeconds}s`);
       await logBlock(ip, 'daily');
       return res.status(429).json({ error: 'Daily limit reached' });
     }
+
+    let messages;
+    let sources = [];
 
     if (process.env.USE_RAG === 'true') {
       const preferred = process.env.EMBEDDING_MODEL ? process.env.EMBEDDING_MODEL.split(',') : ['text-embedding-3-small'];
@@ -110,36 +112,54 @@ export default async function handler(req, res) {
         `<fonte id="${i + 1}" arquivo="${t.meta?.file || 'unknown'}" pagina="${t.meta?.page}" score="${t.score?.toFixed(3)}">\n${t.text}\n</fonte>`
       ).join('\n');
 
-      const userPrompt = `<contexto>\n${contextText}\n</contexto>\n<pergunta>${question}</pergunta>\nResposta:`;
-
-      const chat = await client.chat.completions.create({
-        model: 'gpt-4.1-mini',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: 600
-      });
-
-      const text = chat.choices?.[0]?.message?.content || '';
-      const sources = top.map((t, i) => ({ source: `Source ${i + 1}`, file: t.meta?.file, page: t.meta?.page, score: t.score }));
-      return res.json({ text, sources });
-    }
-
-    // Fallback: direct chat without RAG context
-    const chat = await client.chat.completions.create({
-      model: 'gpt-4.1-mini',
-      messages: [
+      messages = [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: `<contexto>\n${contextText}\n</contexto>\n<pergunta>${question}</pergunta>\nResposta:` }
+      ];
+      sources = top.map((t, i) => ({ source: `Source ${i + 1}`, file: t.meta?.file, page: t.meta?.page, score: t.score }));
+    } else {
+      messages = [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `<pergunta>${question}</pergunta>\nResposta:` }
-      ],
-      max_tokens: 600
-    });
+      ];
+    }
 
-    const text = chat.choices?.[0]?.message?.content || '';
-    res.json({ text });
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    if (res.socket) res.socket.setNoDelay(true);
+    res.flushHeaders();
+
+    const sendEvent = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+    try {
+      const stream = await client.chat.completions.create({
+        model: 'gpt-4.1-mini',
+        messages,
+        max_tokens: 600,
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const token = chunk.choices?.[0]?.delta?.content;
+        if (token) sendEvent({ token });
+      }
+
+      sendEvent({ done: true, sources });
+      res.end();
+    } catch (streamErr) {
+      console.error('stream error:', streamErr?.message || streamErr);
+      sendEvent({ error: 'Erro ao gerar resposta.' });
+      res.end();
+    }
   } catch (err) {
     console.error('chat error:', err?.message || err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: 'Erro ao gerar resposta.' })}\n\n`);
+      res.end();
+    }
   }
 }

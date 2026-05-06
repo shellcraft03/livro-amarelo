@@ -52,6 +52,19 @@ input, textarea {
   50%       { opacity: 0.4; }
 }
 
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.cursor-blink {
+  display: inline-block;
+  animation: blink 0.8s step-end infinite;
+  color: #FCBF22;
+  font-weight: bold;
+  margin-left: 1px;
+}
+
 /* ── Index: split layout ── */
 .split-page   { display: flex; min-height: 100vh; }
 .split-left   { flex: 1 1 55%; display: flex; align-items: center; justify-content: center; padding: 48px 40px; }
