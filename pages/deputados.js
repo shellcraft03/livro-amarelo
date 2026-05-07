@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useDarkMode } from '../hooks/useDarkMode';
 import Header from '../components/Header';
+import CustomSelect from '../components/CustomSelect';
 
 const UF_LABELS = {
   AC: 'Acre', AL: 'Alagoas', AM: 'Amazonas', AP: 'Amapá', BA: 'Bahia',
@@ -14,9 +15,10 @@ const UF_LABELS = {
   SE: 'Sergipe', SP: 'São Paulo', TO: 'Tocantins',
 };
 
-function periodLabel(p) {
-  const [ano, mes] = p.split('-');
-  return `${mes}/${ano}`;
+function legLabel(leg) {
+  const ini = String(leg.ini).substring(0, 4);
+  const fim = Number(String(leg.fim).substring(0, 4)) - 1;
+  return `${leg.id}: ${ini}–${fim}`;
 }
 
 export default function Deputados() {
@@ -24,10 +26,11 @@ export default function Deputados() {
   const router = useRouter();
 
   const [allData, setAllData] = useState([]);
+  const [legislaturas, setLegislaturas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedUF, setSelectedUF] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [selectedLeg, setSelectedLeg] = useState(null);
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
@@ -35,40 +38,29 @@ export default function Deputados() {
   }, [router]);
 
   useEffect(() => {
-    fetch('/api/deputados')
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then(({ data }) => {
-        setAllData(data);
-        const periods = derivePeriods(data);
-        if (periods.length) setSelectedPeriod(periods[0]);
-        setLoading(false);
+    fetch('/api/deputados?meta=1')
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(({ legislaturas: legs }) => {
+        setLegislaturas(legs);
+        if (legs.length) setSelectedLeg(legs[0].id);
       })
       .catch(err => { setError(err.message); setLoading(false); });
   }, []);
 
-  function derivePeriods(data) {
-    return [...new Set(data.map(d => `${d.ano}-${String(d.mes).padStart(2, '0')}`))]
-      .sort()
-      .reverse();
-  }
+  useEffect(() => {
+    if (selectedLeg === null) return;
+    setLoading(true);
+    const ufParam = selectedUF ? `&uf=${selectedUF}` : '';
+    fetch(`/api/deputados?legislatura_id=${selectedLeg}${ufParam}`)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(({ data }) => { setAllData(data); setLoading(false); })
+      .catch(err => { setError(err.message); setLoading(false); });
+  }, [selectedLeg, selectedUF]);
 
-  function deriveUFs(data) {
-    return [...new Set(data.map(d => d.uf))].sort();
-  }
-
-  const periods = derivePeriods(allData);
-  const ufs = deriveUFs(allData);
-
-  const filtered = allData.filter(d => {
-    const period = `${d.ano}-${String(d.mes).padStart(2, '0')}`;
-    return period === selectedPeriod && (!selectedUF || d.uf === selectedUF);
-  });
+  const ufs = Object.keys(UF_LABELS).sort();
 
   const byPartido = new Map();
-  for (const row of filtered) {
+  for (const row of allData) {
     const existing = byPartido.get(row.partido);
     if (existing) {
       existing.quantidade += row.quantidade;
@@ -106,31 +98,27 @@ export default function Deputados() {
             <div style={s.filterRow}>
               <div style={s.filterGroup}>
                 <label style={s.filterLabel}>Estado</label>
-                <select
-                  value={selectedUF}
-                  onChange={e => setSelectedUF(e.target.value)}
-                  style={s.select}
+                <CustomSelect
+                  dark={dark}
                   disabled={loading}
-                >
-                  <option value="">Todos os estados</option>
-                  {ufs.map(uf => (
-                    <option key={uf} value={uf}>{uf} — {UF_LABELS[uf] ?? uf}</option>
-                  ))}
-                </select>
+                  value={selectedUF}
+                  onChange={setSelectedUF}
+                  options={[
+                    { value: '', label: 'Todos os estados' },
+                    ...ufs.map(uf => ({ value: uf, label: `${uf} — ${UF_LABELS[uf] ?? uf}` })),
+                  ]}
+                />
               </div>
 
               <div style={s.filterGroup}>
-                <label style={s.filterLabel}>Período</label>
-                <select
-                  value={selectedPeriod}
-                  onChange={e => setSelectedPeriod(e.target.value)}
-                  style={s.select}
+                <label style={s.filterLabel}>Legislatura</label>
+                <CustomSelect
+                  dark={dark}
                   disabled={loading}
-                >
-                  {periods.map(p => (
-                    <option key={p} value={p}>{periodLabel(p)}</option>
-                  ))}
-                </select>
+                  value={selectedLeg ?? ''}
+                  onChange={v => setSelectedLeg(Number(v))}
+                  options={legislaturas.map(leg => ({ value: leg.id, label: legLabel(leg) }))}
+                />
               </div>
 
               {!loading && !error && totalDeputados > 0 && (
@@ -206,8 +194,6 @@ function getStyles(dark) {
   const textSub  = dark ? '#CCCCCC' : '#333333';
   const rowEven  = dark ? '#1A1A1A' : '#FFFFFF';
   const rowOdd   = dark ? '#1F1F1F' : '#F8F8F8';
-  const inputBg  = dark ? '#111111' : '#FFFFFF';
-  const inputBdr = dark ? '#444444' : '#CCCCCC';
 
   return {
     page: {
@@ -274,16 +260,6 @@ function getStyles(dark) {
       color: text1,
       textTransform: 'uppercase',
       letterSpacing: '0.08em',
-    },
-    select: {
-      background: inputBg,
-      border: `1px solid ${inputBdr}`,
-      borderRadius: '8px',
-      padding: '10px 12px',
-      color: text1,
-      fontSize: '0.9rem',
-      cursor: 'pointer',
-      outline: 'none',
     },
     totalBadge: {
       display: 'flex',

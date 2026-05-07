@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useDarkMode } from '../hooks/useDarkMode';
 import Header from '../components/Header';
+import CustomSelect from '../components/CustomSelect';
 
 const UF_LABELS = {
   AC: 'Acre', AL: 'Alagoas', AM: 'Amazonas', AP: 'Amapá', BA: 'Bahia',
@@ -24,6 +25,7 @@ export default function Filiados() {
   const router = useRouter();
 
   const [allData, setAllData] = useState([]);
+  const [periodos, setPeriodos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedUF, setSelectedUF] = useState('');
@@ -35,42 +37,31 @@ export default function Filiados() {
   }, [router]);
 
   useEffect(() => {
-    fetch('/api/filiados')
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then(({ data }) => {
-        setAllData(data);
-        const periods = derivePeriods(data);
-        if (periods.length) setSelectedPeriod(periods[0]);
-        setLoading(false);
+    fetch('/api/filiados?meta=1')
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(({ periodos: ps }) => {
+        setPeriodos(ps);
+        if (ps.length) setSelectedPeriod(`${ps[0].ano}-${String(ps[0].mes).padStart(2, '0')}`);
       })
       .catch(err => { setError(err.message); setLoading(false); });
   }, []);
 
-  function derivePeriods(data) {
-    return [...new Set(data.map(d => `${d.ano}-${String(d.mes).padStart(2, '0')}`))]
-      .sort()
-      .reverse();
-  }
+  useEffect(() => {
+    if (!selectedPeriod) return;
+    setLoading(true);
+    const [ano, mes] = selectedPeriod.split('-');
+    const ufParam = selectedUF ? `&uf=${selectedUF}` : '';
+    fetch(`/api/filiados?ano=${ano}&mes=${Number(mes)}${ufParam}`)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(({ data }) => { setAllData(data); setLoading(false); })
+      .catch(err => { setError(err.message); setLoading(false); });
+  }, [selectedPeriod, selectedUF]);
 
-  function deriveUFs(data) {
-    return [...new Set(data.map(d => d.uf))].sort();
-  }
-
-  const periods = derivePeriods(allData);
-  const ufs = deriveUFs(allData);
-
-  // Filter by selected period, then by UF if chosen
-  const filtered = allData.filter(d => {
-    const period = `${d.ano}-${String(d.mes).padStart(2, '0')}`;
-    return period === selectedPeriod && (!selectedUF || d.uf === selectedUF);
-  });
+  const ufs = Object.keys(UF_LABELS).sort();
 
   // Aggregate by partido (sum across UFs when no state filter)
   const byPartido = new Map();
-  for (const row of filtered) {
+  for (const row of allData) {
     const existing = byPartido.get(row.partido);
     if (existing) {
       existing.quantidade += row.quantidade;
@@ -109,31 +100,30 @@ export default function Filiados() {
             <div style={s.filterRow}>
               <div style={s.filterGroup}>
                 <label style={s.filterLabel}>Estado</label>
-                <select
-                  value={selectedUF}
-                  onChange={e => setSelectedUF(e.target.value)}
-                  style={s.select}
+                <CustomSelect
+                  dark={dark}
                   disabled={loading}
-                >
-                  <option value="">Todos os estados</option>
-                  {ufs.map(uf => (
-                    <option key={uf} value={uf}>{uf} — {UF_LABELS[uf] ?? uf}</option>
-                  ))}
-                </select>
+                  value={selectedUF}
+                  onChange={setSelectedUF}
+                  options={[
+                    { value: '', label: 'Todos os estados' },
+                    ...ufs.map(uf => ({ value: uf, label: `${uf} — ${UF_LABELS[uf] ?? uf}` })),
+                  ]}
+                />
               </div>
 
               <div style={s.filterGroup}>
                 <label style={s.filterLabel}>Período</label>
-                <select
-                  value={selectedPeriod}
-                  onChange={e => setSelectedPeriod(e.target.value)}
-                  style={s.select}
+                <CustomSelect
+                  dark={dark}
                   disabled={loading}
-                >
-                  {periods.map(p => (
-                    <option key={p} value={p}>{periodLabel(p)}</option>
-                  ))}
-                </select>
+                  value={selectedPeriod}
+                  onChange={setSelectedPeriod}
+                  options={periodos.map(p => {
+                    const val = `${p.ano}-${String(p.mes).padStart(2, '0')}`;
+                    return { value: val, label: periodLabel(val) };
+                  })}
+                />
               </div>
 
               {!loading && !error && totalFiliados > 0 && (
@@ -209,8 +199,6 @@ function getStyles(dark) {
   const textSub = dark ? '#CCCCCC' : '#333333';
   const rowEven = dark ? '#1A1A1A' : '#FFFFFF';
   const rowOdd  = dark ? '#1F1F1F' : '#F8F8F8';
-  const inputBg = dark ? '#111111' : '#FFFFFF';
-  const inputBdr = dark ? '#444444' : '#CCCCCC';
 
   return {
     page: {
@@ -277,16 +265,6 @@ function getStyles(dark) {
       color: text1,
       textTransform: 'uppercase',
       letterSpacing: '0.08em',
-    },
-    select: {
-      background: inputBg,
-      border: `1px solid ${inputBdr}`,
-      borderRadius: '8px',
-      padding: '10px 12px',
-      color: text1,
-      fontSize: '0.9rem',
-      cursor: 'pointer',
-      outline: 'none',
     },
     totalBadge: {
       display: 'flex',
