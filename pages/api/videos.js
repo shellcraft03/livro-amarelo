@@ -30,9 +30,17 @@ async function handleGet(req, res) {
 
 const YT_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/;
 
+export const config = {
+  api: { bodyParser: { sizeLimit: '4kb' } },
+};
+
 export default async function handler(req, res) {
   if (req.method === 'GET') return handleGet(req, res);
   if (req.method !== 'POST') return res.status(405).end();
+
+  if (!String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) {
+    return res.status(415).json({ error: 'Unsupported media type' });
+  }
 
   if (!process.env.DATABASE_URL) {
     return res.status(503).json({ error: 'Banco de dados não configurado.' });
@@ -40,7 +48,7 @@ export default async function handler(req, res) {
 
   const ip = getIp(req);
 
-  const { url, title, individual, turnstileToken } = req.body || {};
+  const { url, turnstileToken } = req.body || {};
 
   const okRes = await verifyTurnstile(turnstileToken, { ip, action: 'chat' });
   if (!okRes.ok) {
@@ -70,14 +78,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'URL inválida. Envie um link do YouTube.' });
   }
 
-  if (individual && typeof individual === 'string' && individual.trim().length > 200) {
-    return res.status(400).json({ error: 'Nome do entrevistado muito longo.' });
-  }
-
-  if (title && typeof title === 'string' && title.trim().length > 500) {
-    return res.status(400).json({ error: 'Título muito longo.' });
-  }
-
   try {
     const db = neon(process.env.DATABASE_URL);
 
@@ -87,12 +87,7 @@ export default async function handler(req, res) {
     }
 
     await db`
-      INSERT INTO videos (url, title, individual)
-      VALUES (
-        ${url.trim()},
-        ${title?.trim() || null},
-        ${individual?.trim() || null}
-      )
+      INSERT INTO videos (url) VALUES (${url.trim()})
     `;
 
     return res.status(201).json({ message: 'Vídeo recebido. Será processado em breve.' });

@@ -51,8 +51,15 @@ async function fetchTranscriptSample(url) {
   return { sample: sample.slice(0, TRANSCRIPT_SAMPLE_CHARS), totalChars };
 }
 
+function sanitizeField(value, maxLen = 200) {
+  if (!value || typeof value !== 'string') return null;
+  return value.replace(/[\x00-\x1F\x7F]/g, ' ').trim().slice(0, maxLen);
+}
+
 async function curate(video) {
-  const { id, url, title, individual } = video;
+  const { id, url } = video;
+  const title      = sanitizeField(video.title, 300);
+  const individual = sanitizeField(video.individual, 200);
 
   console.log(`[${id}] Curando: ${url}`);
 

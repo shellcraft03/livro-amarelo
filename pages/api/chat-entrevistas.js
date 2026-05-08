@@ -98,9 +98,10 @@ export default async function handler(req, res) {
     if (embedding) {
       const top = await queryEmbeddingInNamespace(embedding, 'entrevistas', 14);
       contextText = top.map((t, i) => {
-        const secs = t.meta?.start_seconds ?? null;
+        const secs  = t.meta?.start_seconds ?? null;
         const tempo = secs != null ? formatTime(secs) : '';
-        return `<fonte id="${i + 1}" titulo="${t.meta?.title || ''}" tempo="${tempo}">\n${t.text}\n</fonte>`;
+        const esc   = (s) => String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        return `<fonte id="${i + 1}" titulo="${esc(t.meta?.title)}" tempo="${esc(tempo)}">\n${t.text}\n</fonte>`;
       }).join('\n');
       sources = top.map((t, i) => ({
         id:            i + 1,
