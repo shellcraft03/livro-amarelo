@@ -67,14 +67,7 @@ async function curate(video) {
   try {
     ({ sample, totalChars } = await fetchTranscriptSample(url));
   } catch (err) {
-    console.warn(`[${id}] Não foi possível obter transcrição: ${err.message}`);
-    await sql`
-      UPDATE videos
-      SET curated = false,
-          rejection_reason = ${'Não foi possível obter a transcrição: ' + err.message},
-          curated_at = NOW()
-      WHERE id = ${id}
-    `;
+    console.warn(`[${id}] Não foi possível obter transcrição, pulando (será tentado novamente): ${err.message}`);
     return;
   }
 
