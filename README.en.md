@@ -4,7 +4,7 @@
 
 # o Livro Amarelo — Q&A
 
-**Explore O Livro Amarelo through natural language questions.**
+**Explore O Livro Amarelo and Renan Santos's interviews through natural language questions.**
 
 Retrieval-Augmented Generation with OpenAI · Protected by Cloudflare Turnstile
 
@@ -26,18 +26,20 @@ Retrieval-Augmented Generation with OpenAI · Protected by Cloudflare Turnstile
 
 **O Livro Amarelo** (The Yellow Book) is a long-term national project aimed at transforming Brazil into the world's fifth largest economy over the coming decades. It is a concrete plan, built on objective and structured proposals, designed to guide the country's sustainable and consistent development.
 
-This web application allows users to explore the content of O Livro Amarelo through natural language questions. The system indexes the document, generates semantic embeddings, and uses a language model to answer based exclusively on the document's content — citing page numbers as sources.
+This web application allows users to explore the content of O Livro Amarelo and Renan Santos's interviews through natural language questions. The system indexes documents and transcripts, generates semantic embeddings, and uses a language model to answer based exclusively on the indexed content — citing sources.
 
 ---
 
 ## Features
 
 - **Full RAG pipeline** — semantic search via embeddings + contextualized response generation
+- **Renan Responde** — Q&A based on YouTube interviews: automatic transcription, AI speaker filtering, sentence-boundary chunking, inline citations `[1][2]` with direct links to the exact moment in the video
+- **Automatic interview curation** — an AI agent daily evaluates links submitted by users and approves/rejects them based on defined criteria (main interviewee, complete interview, independent channel, substantive political content)
+- **User video submission** — form on the `/entrevistas` page to suggest YouTube links; protected by Turnstile + rate limit
 - **CAPTCHA protection** — Cloudflare Turnstile with a fresh token per request
-- **Rate limiting** — 10 req/min and 50 req/day per IP via Sliding Window (`@upstash/ratelimit`) · only blocked requests are logged to the `rl:blocked` Redis key (persistent list, no TTL, timestamp in Brasília timezone) · in-memory fallback (local dev)
-- **Concrete answers** — the model is instructed to cite only proposals explicitly found in the document
-- **Sharing** — buttons to copy text or download the answer as a JPEG image
-- **Federal deputies** — `/deputados` page showing Chamber of Deputies composition by party and state, via the Câmara dos Deputados API; party name resolved via join with the membership database
+- **Shared rate limiting** — 10 req/min and 50 req/day per IP via Sliding Window (`@upstash/ratelimit`); counters shared across all endpoints (book chat, interview chat, and video submission) · in-memory fallback (local dev)
+- **Concrete answers** — the model cites only what is explicitly found in the indexed sources
+- **Federal deputies** — `/deputados` page showing Chamber of Deputies composition by party and state, via the Câmara dos Deputados API
 - **Party membership data** — `/filiados` page showing party affiliation counts by state, automatically updated every Monday via GitHub Actions from public TSE data
 - **Responsive** — layout adapted for desktop and mobile devices
 
@@ -50,13 +52,14 @@ This web application allows users to explore the content of O Livro Amarelo thro
 | Frontend | Next.js 16 · React 18 |
 | LLM | OpenAI GPT-4.1-mini |
 | Embeddings | OpenAI text-embedding-3-small |
-| Vector store | Pinecone (cloud vector database) |
+| Vector store | Pinecone — namespace `default` (book) and `entrevistas` (YouTube) |
 | Relational DB | Neon Postgres (serverless) |
+| YouTube transcription | youtube-transcript |
 | CAPTCHA | Cloudflare Turnstile |
 | Rate limit | @upstash/ratelimit · Sliding Window · Upstash Redis (serverless) · in-memory fallback (local dev) |
 | Analytics | Google Analytics 4 |
 | PDF parsing | pdf-parse |
-| Data automation | GitHub Actions (weekly cron) |
+| Data automation | GitHub Actions (daily and weekly cron) |
 
 ---
 
@@ -66,38 +69,44 @@ This web application allows users to explore the content of O Livro Amarelo thro
 livro-amarelo/
 ├── .github/
 │   └── workflows/
-│       └── update-filiados.yml   # Weekly cron: updates membership (TSE) and deputies (Câmara API)
+│       ├── update-filiados.yml      # Weekly cron: updates membership (TSE) and deputies (Câmara API)
+│       └── curate-videos.yml        # Daily cron 18:00 BRT: curation + indexing of YouTube interviews
 ├── pages/
-│   ├── index.js              # Verification page (Turnstile)
-│   ├── inicio.js             # Q&A interface
-│   ├── deputados.js          # Federal deputies page by party and state
-│   ├── filiados.js           # Party membership page by state
-│   ├── sobre.js              # About page
-│   ├── privacidade.js        # Privacy policy
-│   ├── _app.js               # App wrapper — global CSS + Google Analytics
+│   ├── index.js                     # Verification page (Turnstile)
+│   ├── inicio.js                    # Q&A interface — Livro Amarelo
+│   ├── renan-santos-responde.js     # Q&A interface — Interviews (Renan Responde)
+│   ├── entrevistas.js               # Indexed interviews list + submission form
+│   ├── deputados.js                 # Federal deputies by party and state
+│   ├── filiados.js                  # Party membership by state
+│   ├── sobre.js                     # About page
+│   ├── privacidade.js               # Privacy policy
+│   ├── _app.js                      # App wrapper — global CSS + Google Analytics
 │   └── api/
-│       ├── chat.js           # Main RAG + LLM endpoint
-│       ├── deputados.js      # Deputies endpoint (Neon + join with filiados for party name)
-│       └── filiados.js       # Party membership endpoint (reads from Neon Postgres)
+│       ├── chat.js                  # RAG + LLM — Livro Amarelo
+│       ├── chat-entrevistas.js      # RAG + LLM — YouTube interviews (entrevistas namespace)
+│       ├── videos.js                # GET indexed list · POST suggestion submission
+│       ├── deputados.js             # Deputies endpoint (Neon + join with filiados)
+│       └── filiados.js              # Party membership endpoint (Neon Postgres)
 ├── hooks/
-│   └── useTurnstile.js       # React hook for the Turnstile widget
+│   └── useTurnstile.js              # React hook for the Turnstile widget
 ├── lib/
-│   ├── turnstile.js          # Server-side token verification
-│   ├── chunker.js            # Text splitting and normalization
-│   ├── vectorStore.js        # Embedding storage and search
-│   └── rateLimiter.js        # IP-based rate limiting
+│   ├── turnstile.js                 # Server-side token verification
+│   ├── chunker.js                   # Text splitting and normalization (PDF)
+│   ├── vectorStore.js               # Embedding storage and search (Pinecone)
+│   └── rateLimiter.js               # IP-based rate limiting (shared across endpoints)
 ├── scripts/
-│   ├── aggregate_deputados.mjs   # Fetches deputies from Câmara API and inserts into Neon
-│   ├── aggregate_filiados.mjs    # Streams TSE CSV and inserts into Neon
-│   ├── index_pdf.mjs             # Index PDFs from data/books/
-│   ├── generate_embeddings.mjs   # Generate embeddings for items without vectors
-│   └── migrate_to_pinecone.mjs   # Upload vectors from store.json to Pinecone
+│   ├── migrate_videos.mjs           # Create/update videos table in Neon
+│   ├── curate_videos.mjs            # Curate pending videos via GPT-4.1-mini
+│   ├── index_youtube.mjs            # Transcription, speaker filter, chunking, embeddings → Pinecone
+│   ├── aggregate_deputados.mjs      # Fetch deputies from Câmara API and insert into Neon
+│   ├── aggregate_filiados.mjs       # Stream TSE CSV and insert into Neon
+│   ├── index_pdf.mjs                # Index PDFs from data/books/
+│   ├── generate_embeddings.mjs      # Generate embeddings for items without vectors
+│   └── migrate_to_pinecone.mjs      # Upload vectors from store.json to Pinecone
 ├── styles/
-│   └── globals.css           # Color palette, reset and responsive classes
-├── public/
-│   └── cover.png             # Cover illustration
-└── data/
-    └── books/                # Source PDFs (not versioned)
+│   └── globals.css                  # Color palette, reset and responsive classes
+└── public/
+    └── cover.png                    # Cover illustration
 ```
 
 ---
@@ -129,78 +138,59 @@ PINECONE_INDEX=your-index-name
 # Enable RAG pipeline
 USE_RAG=true
 
-# Embedding model (optional — default: text-embedding-3-small)
-# EMBEDDING_MODEL=text-embedding-3-small
-
 # Upstash Redis for distributed rate limiting
 UPSTASH_REDIS_REST_URL=https://...
 UPSTASH_REDIS_REST_TOKEN=...
 
-# Neon Postgres for party membership data
+# Neon Postgres
 DATABASE_URL=postgresql://...
 ```
 
-> **Pinecone:** create an index in the [Pinecone console](https://app.pinecone.io) with dimension **1536** (compatible with `text-embedding-3-small`) and a region of your choice. After indexing PDFs locally, run the migration script (step 3b) to upload the vectors to Pinecone.
+> **Pinecone:** create an index with dimension **1536** (compatible with `text-embedding-3-small`). The project uses two namespaces: `default` for the Livro Amarelo and `entrevistas` for YouTube interviews.
 
-> **Note:** Your OpenAI project must have access to two models:
-> - `text-embedding-3-small` — for embedding generation during indexing and queries
-> - `gpt-4.1-mini` — for natural language response generation
->
-> Check at *platform.openai.com → Projects → Model access*. These are the default models, but developers can swap them for any models they prefer by editing the `EMBEDDING_MODEL` variable and the `model` field in `pages/api/chat.js`.
+> **Neon:** the `videos` table is created/updated by `migrate_videos.mjs`. Run it once before indexing any interviews.
 
-> **Neon:** create a project at [neon.tech](https://neon.tech) and copy the connection string in `postgresql://...` format. The `filiados_partidarios` table is created automatically on the first run of `aggregate_filiados.mjs`. Also add `DATABASE_URL` as a repository secret on GitHub (Actions → Secrets) for the automatic update workflow to work.
-
-### 3. Index the document and upload to Pinecone
-
-Place the PDF in `data/books/` and run:
+### 3. Index the Livro Amarelo
 
 ```bash
-# First-time indexing (extracts text, generates chunks and embeddings locally)
+# Place the PDF in data/books/ and run:
 npm run index:pdf
 
-# Re-index from scratch (clears the store first)
+# Re-index from scratch
 npm run index:pdf -- --reindex
-```
 
-#### 3b. Migrate vectors to Pinecone
-
-After local indexing, upload the vectors to Pinecone:
-
-```bash
+# Upload vectors to Pinecone
 node scripts/migrate_to_pinecone.mjs
 ```
 
-The script reads the local `store.json` and uploads all vectors in batches of 100. After migration, `store.json` is no longer needed in production — vectors are stored in Pinecone.
-
-### 4. Populate the party membership database
-
-Download the TSE affiliation file and process it with the aggregation script:
+### 4. Set up YouTube interviews
 
 ```bash
-# Download and extract
+# Create the table in Neon
+node scripts/migrate_videos.mjs
+
+# Insert a video manually (or via the form on /entrevistas)
+# then run the full pipeline:
+node scripts/curate_videos.mjs    # AI curation
+node scripts/index_youtube.mjs    # transcription + embeddings → Pinecone
+```
+
+From the first run, the `curate-videos.yml` workflow runs the full pipeline automatically every day at 18:00 BRT.
+
+### 5. Populate party membership and deputies
+
+```bash
+# TSE membership data
 curl -L -o filiacao.zip "https://cdn.tse.jus.br/estatistica/sead/odsele/filiacao_partidaria/perfil_filiacao_partidaria.zip"
 mkdir -p tse_data && unzip filiacao.zip -d tse_data/
-
-# Process and insert into the database (~12M rows, ~5 min)
 node scripts/aggregate_filiados.mjs ./tse_data
-
-# Clean up
 rm -rf filiacao.zip tse_data/
+
+# Federal deputies
+node scripts/aggregate_deputados.mjs
 ```
 
-The script uses streaming to process the 3.3 GB CSV without exhausting memory. On each run, data for the period found in the file is dropped and re-inserted — no duplicates possible.
-
-After the initial load, the GitHub Actions workflow updates the database automatically every Monday at 08:00 BRT.
-
-### 5. Generate missing embeddings
-
-If indexing saved items without embeddings (temporary API failure):
-
-```bash
-npm run generate:embeddings
-```
-
-The script runs a preflight check and reports whether the model is accessible before processing.
+After the initial load, the `update-filiados.yml` workflow updates both automatically every Monday at 08:00 BRT.
 
 ### 6. Start the server
 
@@ -217,49 +207,57 @@ npm run build && npm start     # production
 User
   │
   ▼
-┌──────────────────────────────────────┐
-│  /  — Turnstile Verification         │  Solve CAPTCHA → click "Enter"
-└─────────────┬────────────────────────┘
+┌───────────────────────────────────────────┐
+│  /  — Turnstile Verification              │  Solve CAPTCHA → click "Enter"
+└─────────────┬─────────────────────────────┘
               │ token saved in sessionStorage
               ▼
-┌──────────────────────────────────────┐
-│  /inicio — Q&A Interface             │  Type question → Enter or button
-└─────────────┬────────────────────────┘
-              │ fresh token generated per request
+┌─────────────────────────────────────────────────────────┐
+│  /inicio — Q&A Livro Amarelo                            │
+│  /renan-santos-responde — Renan Responde (interviews)   │
+└─────────────┬───────────────────────────────────────────┘
+              │ fresh token generated per request (invisible Turnstile)
               ▼
-┌──────────────────────────────────────┐
-│  /api/chat                           │
-│  1. Verify POST method               │
-│  2. Rate limit (min + day)           │
-│  3. Verify Turnstile                 │
-│  4. Embed the question               │
-│  5. Retrieve top-6 chunks (Pinecone) │
-│  6. Build prompt with context        │
-│  7. GPT-4.1-mini responds            │
-└─────────────┬────────────────────────┘
+┌───────────────────────────────────────────┐
+│  /api/chat  or  /api/chat-entrevistas     │
+│  1. Verify Turnstile                      │
+│  2. Rate limit per IP (min + day)         │
+│  3. Embed the question                    │
+│  4. Retrieve top-14 chunks (Pinecone)     │
+│  5. Build prompt with context             │
+│  6. GPT-4.1-mini responds via streaming   │
+└─────────────┬─────────────────────────────┘
               │
               ▼
-        Answer with page citation
-        + copy text / download image options
+        Answer with inline citations [1][2]
+        + source list with links to the exact moment in YouTube
 
-┌──────────────────────────────────────┐
-│  /filiados — Party Membership        │  Filter by state and period
-└─────────────┬────────────────────────┘
-              │
-              ▼
-┌──────────────────────────────────────┐
-│  /api/filiados                       │
-│  Reads from Neon Postgres            │
-│  Cache: 1h (s-maxage)               │
-└──────────────────────────────────────┘
-              ▲
-              │ every Monday 08:00 BRT
-┌──────────────────────────────────────┐
-│  GitHub Actions                      │
-│  Downloads TSE ZIP (~221 MB)         │
-│  Streams 12M rows                    │
-│  Drop + insert into Neon             │
-└──────────────────────────────────────┘
+┌───────────────────────────────────────────┐
+│  /entrevistas — List + submission         │
+│  Search by title or channel               │
+│  Link suggestion form                     │
+│  Turnstile + rate limit per request       │
+└───────────────────────────────────────────┘
+
+┌───────────────────────────────────────────┐
+│  GitHub Actions — curate-videos.yml       │  every day at 18:00 BRT
+│  1. curate_videos.mjs                     │
+│     Fetch pending videos (Neon)           │
+│     Transcript sample → GPT evaluates     │
+│     Approve or reject with reason         │
+│  2. index_youtube.mjs                     │
+│     Full transcript via YouTube API       │
+│     AI speaker filtering (GPT)            │
+│     Sentence-boundary chunking            │
+│     Embeddings → Pinecone (entrevistas)   │
+│     Save title, channel and date to Neon  │
+└───────────────────────────────────────────┘
+
+┌───────────────────────────────────────────┐
+│  GitHub Actions — update-filiados.yml     │  every Monday at 08:00 BRT
+│  Membership: TSE ZIP → stream → Neon      │
+│  Deputies: Câmara API → Neon              │
+└───────────────────────────────────────────┘
 ```
 
 ---
@@ -274,6 +272,9 @@ User
 | `npm run index:pdf` | Index PDFs in `data/books/` |
 | `npm run index:pdf -- --reindex` | Clear local store and re-index |
 | `npm run generate:embeddings` | Fill in missing embeddings |
+| `node scripts/migrate_videos.mjs` | Create/update videos table in Neon |
+| `node scripts/curate_videos.mjs` | Curate pending videos |
+| `node scripts/index_youtube.mjs` | Index approved interviews into Pinecone |
 | `node scripts/migrate_to_pinecone.mjs` | Upload vectors from store.json to Pinecone |
 | `node scripts/aggregate_filiados.mjs ./tse_data` | Process TSE CSV and insert into Neon |
 | `node scripts/aggregate_deputados.mjs` | Fetch deputies from Câmara API and insert into Neon |
