@@ -260,6 +260,27 @@ Usuário
 │  Processa 12M linhas via stream   │
 │  Drop + insert no Neon            │
 └───────────────────────────────────┘
+
+┌───────────────────────────────────┐
+│  /deputados — Deputados Federais  │  Filtros por estado e legislatura
+└─────────────┬─────────────────────┘
+              │
+              ▼
+┌───────────────────────────────────┐
+│  /api/deputados                   │
+│  Lê do Neon Postgres              │
+│  Join com filiados_partidarios    │
+│  para obter nome do partido       │
+│  Cache: 1h (s-maxage)             │
+└───────────────────────────────────┘
+              ▲
+              │ toda segunda-feira 08:00 BRT
+┌───────────────────────────────────┐
+│  GitHub Actions                   │
+│  Busca deputados na API da Câmara │
+│  Agrega por partido × UF          │
+│  Drop + insert no Neon            │
+└───────────────────────────────────┘
 ```
 
 ---
