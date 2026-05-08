@@ -30,6 +30,20 @@ async function handleGet(req, res) {
 
 const YT_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/;
 
+async function hasTranscript(url) {
+  const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (!m) return false;
+  try {
+    const res  = await fetch(`https://www.youtube.com/watch?v=${m[1]}`, {
+      headers: { 'Accept-Language': 'pt-BR,pt;q=0.9', 'User-Agent': 'Mozilla/5.0' },
+    });
+    const html = await res.text();
+    return html.includes('"captionTracks"');
+  } catch {
+    return true; // erro de rede — não bloqueia
+  }
+}
+
 export const config = {
   api: { bodyParser: { sizeLimit: '4kb' } },
 };
@@ -76,6 +90,10 @@ export default async function handler(req, res) {
 
   if (!YT_REGEX.test(url.trim())) {
     return res.status(400).json({ error: 'URL inválida. Envie um link do YouTube.' });
+  }
+
+  if (!(await hasTranscript(url.trim()))) {
+    return res.status(422).json({ error: 'Este vídeo não possui transcrição disponível no YouTube e não pode ser indexado.' });
   }
 
   try {
