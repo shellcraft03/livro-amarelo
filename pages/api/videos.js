@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { checkMinuteLimit, checkDailyLimit, logBlock } from '../../lib/rateLimiter.js';
+import { verifyTurnstile } from '../../lib/turnstile.js';
 
 function getIp(req) {
   const forwardedFor = req.headers['x-forwarded-for'];
@@ -39,6 +40,14 @@ export default async function handler(req, res) {
 
   const ip = getIp(req);
 
+  const { url, title, individual, turnstileToken } = req.body || {};
+
+  const okRes = await verifyTurnstile(turnstileToken, { ip, action: 'chat' });
+  if (!okRes.ok) {
+    console.warn(`[videos] turnstile failed ip=${ip} reason=${okRes.reason || 'unknown'}`);
+    return res.status(403).json({ error: 'Verificação de segurança falhou.' });
+  }
+
   const rl = await checkMinuteLimit(ip);
   res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
   res.setHeader('X-RateLimit-Reset', String(rl.resetSeconds));
@@ -52,8 +61,6 @@ export default async function handler(req, res) {
     await logBlock(ip, 'daily');
     return res.status(429).json({ error: 'Daily limit reached' });
   }
-
-  const { url, title, individual } = req.body || {};
 
   if (!url || typeof url !== 'string') {
     return res.status(400).json({ error: 'URL é obrigatória.' });

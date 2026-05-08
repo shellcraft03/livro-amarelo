@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useDarkMode } from '../hooks/useDarkMode';
+import { useTurnstile } from '../hooks/useTurnstile';
 import Header from '../components/Header';
 
 function YouTubeIcon() {
@@ -45,6 +46,7 @@ export default function Entrevistas() {
   const [submitting, setSubmitting]       = useState(false);
   const [submitStatus, setSubmitStatus]   = useState(null); // { ok: bool, msg: string }
   const router = useRouter();
+  const { getFreshToken } = useTurnstile('turnstile-videos', { action: 'chat' });
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
@@ -73,10 +75,16 @@ export default function Entrevistas() {
     setSubmitting(true);
     setSubmitStatus(null);
     try {
+      const turnstileToken = await getFreshToken();
+      if (!turnstileToken) {
+        setSubmitStatus({ ok: false, msg: 'Verificação de segurança falhou. Recarregue a página.' });
+        setSubmitting(false);
+        return;
+      }
       const res = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, turnstileToken }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -196,6 +204,7 @@ export default function Entrevistas() {
           )}
 
         </main>
+        <div id="turnstile-videos" style={{ display: 'none' }} />
       </div>
     </>
   );
