@@ -21,7 +21,8 @@ function chunkSegments(segments, maxChars = CHUNK_SIZE) {
 
   function flush(segs) {
     if (segs.length === 0) return;
-    const text = segs.map(s => s.text.trim()).filter(Boolean).join(' ').trim();
+    const raw  = segs.map(s => s.text.trim()).filter(Boolean).join(' ').trim();
+    const text = raw.replace(/[<>]/g, m => m === '<' ? '&lt;' : '&gt;');
     if (text.length >= 80) chunks.push({ text, startOffsetMs: segs[0].offset });
   }
 
