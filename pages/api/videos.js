@@ -18,7 +18,7 @@ async function handleGet(req, res) {
       SELECT id, url, title, individual, channel, indexed_at, published_at
       FROM videos
       WHERE indexed = true
-      ORDER BY indexed_at DESC
+      ORDER BY published_at DESC NULLS LAST, indexed_at DESC
     `;
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
     return res.status(200).json({ videos: rows });
