@@ -92,8 +92,6 @@ export default function Entrevistas() {
         setSubmitUrl('');
       } else if (res.status === 409) {
         setSubmitStatus({ ok: false, msg: 'Este vídeo já foi enviado anteriormente.' });
-      } else if (res.status === 422) {
-        setSubmitStatus({ ok: false, msg: data.error || 'Este vídeo não possui transcrição disponível no YouTube.' });
       } else if (res.status === 429) {
         setSubmitStatus({ ok: false, msg: 'Muitas tentativas. Tente novamente mais tarde.' });
       } else {

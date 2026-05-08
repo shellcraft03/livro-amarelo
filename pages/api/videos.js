@@ -30,26 +30,6 @@ async function handleGet(req, res) {
 
 const YT_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/;
 
-async function hasTranscript(url) {
-  const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  if (!m) return false;
-  try {
-    const res  = await fetch(`https://www.youtube.com/watch?v=${m[1]}`, {
-      headers: {
-        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    });
-    const html = await res.text();
-    // Se o player response não veio (página de consentimento, bot gate etc.),
-    // não bloqueia — benefício da dúvida para evitar falsos negativos.
-    if (!html.includes('ytInitialPlayerResponse')) return true;
-    return html.includes('"captionTracks"');
-  } catch {
-    return true; // erro de rede — não bloqueia
-  }
-}
 
 export const config = {
   api: { bodyParser: { sizeLimit: '4kb' } },
@@ -97,10 +77,6 @@ export default async function handler(req, res) {
 
   if (!YT_REGEX.test(url.trim())) {
     return res.status(400).json({ error: 'URL inválida. Envie um link do YouTube.' });
-  }
-
-  if (!(await hasTranscript(url.trim()))) {
-    return res.status(422).json({ error: 'Este vídeo não possui transcrição disponível no YouTube e não pode ser indexado.' });
   }
 
   try {
