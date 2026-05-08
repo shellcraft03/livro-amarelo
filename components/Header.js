@@ -2,11 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 
 // Adicionar novas páginas aqui — o dropdown atualiza automaticamente
 const PAGES = [
-  { href: '/inicio',       label: 'Início'      },
-  { href: '/deputados',    label: 'Deputados'   },
-  { href: '/filiados',     label: 'Filiados'    },
-  { href: '/sobre',        label: 'Sobre'       },
-  { href: '/privacidade',  label: 'Privacidade' },
+  { href: '/inicio',                  label: 'Início'                  },
+  { href: '/renan-santos-responde',   label: 'Renan Responde'          },
+  { href: '/deputados',               label: 'Deputados'               },
+  { href: '/filiados',                label: 'Filiados'                },
+  { href: '/sobre',                   label: 'Sobre'                   },
+  { href: '/privacidade',             label: 'Privacidade'             },
 ];
 
 function SunIcon() {
