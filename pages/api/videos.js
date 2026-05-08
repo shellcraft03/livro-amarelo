@@ -35,9 +35,16 @@ async function hasTranscript(url) {
   if (!m) return false;
   try {
     const res  = await fetch(`https://www.youtube.com/watch?v=${m[1]}`, {
-      headers: { 'Accept-Language': 'pt-BR,pt;q=0.9', 'User-Agent': 'Mozilla/5.0' },
+      headers: {
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
     });
     const html = await res.text();
+    // Se o player response não veio (página de consentimento, bot gate etc.),
+    // não bloqueia — benefício da dúvida para evitar falsos negativos.
+    if (!html.includes('ytInitialPlayerResponse')) return true;
     return html.includes('"captionTracks"');
   } catch {
     return true; // erro de rede — não bloqueia
