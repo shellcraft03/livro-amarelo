@@ -10,11 +10,9 @@ const pc     = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
 const index  = pc.index(process.env.PINECONE_INDEX).namespace('entrevistas');
 const ai     = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const TRANSCRIPT_SAMPLE_CHARS = 3000;
-const CHUNK_SIZE               = 400;
+const CHUNK_SIZE  = 400;
 const UPSERT_BATCH             = 100;
-const EMBEDDING_MODEL          = 'text-embedding-3-small';
-const SPEAKER_BLOCK            = 50;
+const EMBEDDING_MODEL = 'text-embedding-3-small';
 
 const CURATION_PROMPT = `Você é um curador de conteúdo de uma plataforma política sobre Renan Santos, pré-candidato à presidência do Brasil pelo Partido Missão.
 
@@ -72,7 +70,7 @@ async function fetchVideoMetadata(videoId) {
   }
 }
 
-// ─── Gemini transcript (one call per video) ──────────────────────────────────
+// ─── Gemini transcript (chunked URL — handles videos of any length) ─────────
 
 async function fetchTranscript(url) {
   const cleanUrl = cleanYouTubeUrl(url);
@@ -103,7 +101,8 @@ async function fetchTranscript(url) {
       model: 'gemini-2.5-flash',
       contents: [{ parts: [{ text:
         `Transcribe the speech from minute ${startMin} to minute ${endMin} of this YouTube video: ${cleanUrl}\n\n` +
-        `Return ONLY a valid JSON array: [{"text": "spoken words", "offset_seconds": N}]\n` +
+        `Identify each speaker by name or role (e.g. "Renan Santos", "Entrevistador", "Apresentador").\n` +
+        `Return ONLY a valid JSON array: [{"speaker": "name or role", "text": "spoken words", "offset_seconds": N}]\n` +
         `offset_seconds must be the absolute time from the video start (minute ${startMin} = ${startMin * 60}s). No extra text.`,
       }] }],
       config: { responseMimeType: 'application/json' },
@@ -125,7 +124,11 @@ async function fetchTranscript(url) {
 
     for (const s of parsed) {
       const text = String(s.text || '').trim();
-      if (text) allSegments.push({ text, offset: Math.round((Number(s.offset_seconds) || startMin * 60) * 1000) });
+      if (text) allSegments.push({
+        text,
+        speaker: String(s.speaker || '').trim(),
+        offset:  Math.round((Number(s.offset_seconds) || startMin * 60) * 1000),
+      });
     }
     process.stdout.write(`\r  transcribed ${endMin}/${totalMinutes} min (${allSegments.length} segments)`);
   }
@@ -137,23 +140,14 @@ async function fetchTranscript(url) {
 // ─── Curation (GPT, uses transcript sample) ──────────────────────────────────
 
 async function evaluateCuration(segments, video) {
-  const full       = segments.map(s => s.text).join(' ');
-  const totalChars = full.length;
-  const third      = Math.floor(totalChars / 3);
-  const sample     = [
-    full.slice(0, 1000),
-    full.slice(third, third + 1000),
-    full.slice(-1000),
-  ].join('\n\n[...]\n\n').slice(0, TRANSCRIPT_SAMPLE_CHARS);
-
+  const full       = segments.map(s => s.speaker ? `[${s.speaker}]: ${s.text}` : s.text).join('\n').trim();
   const title      = sanitizeField(video.title, 300);
   const individual = sanitizeField(video.individual, 200);
 
   const userMessage = [
     title      ? `Título informado: ${title}`           : null,
     individual ? `Entrevistado informado: ${individual}` : null,
-    `Tamanho total da transcrição: ~${Math.round(totalChars / 5)} palavras`,
-    `\nTrecho da transcrição:\n${sample}`,
+    `\nTranscrição:\n${full}`,
   ].filter(Boolean).join('\n');
 
   const res = await openai.chat.completions.create({
@@ -170,52 +164,13 @@ async function evaluateCuration(segments, video) {
   return { approved: Boolean(verdict.approved), reason: String(verdict.reason || '').slice(0, 500) };
 }
 
-// ─── Speaker filter (GPT, block by block) ────────────────────────────────────
+// ─── Speaker filter (uses Gemini speaker labels) ─────────────────────────────
 
-async function filterSpeakerSegments(segments, individual) {
-  const name = individual || 'Renan Santos';
-  const kept = [];
-
-  for (let i = 0; i < segments.length; i += SPEAKER_BLOCK) {
-    const block = segments.slice(i, i + SPEAKER_BLOCK);
-    const text  = block.map((s, j) => `${j}: ${s.text.trim()}`).join('\n');
-
-    let raw;
-    try {
-      const res = await openai.chat.completions.create({
-        model: 'gpt-4.1-mini',
-        temperature: 0,
-        max_tokens: 300,
-        messages: [
-          {
-            role: 'system',
-            content: `Você receberá linhas numeradas de uma transcrição de entrevista. Identifique quais linhas são falas de "${name}" (não do entrevistador nem de terceiros). Retorne APENAS um array JSON com os números das linhas de "${name}". Exemplo: [0,1,2,5,6]. Sem texto adicional.`,
-          },
-          { role: 'user', content: text },
-        ],
-      });
-      raw = res.choices[0].message.content.trim();
-    } catch (err) {
-      console.warn(`  block ${i}–${i + block.length}: classification error, including all.`, err.message);
-      kept.push(...block);
-      continue;
-    }
-
-    let indices;
-    try { indices = JSON.parse(raw); } catch {
-      console.warn(`  block ${i}–${i + block.length}: invalid response ("${raw}"), including all.`);
-      kept.push(...block);
-      continue;
-    }
-
-    for (const j of indices) {
-      if (block[j]) kept.push(block[j]);
-    }
-
-    process.stdout.write(`\r  filtering segments ${Math.min(i + SPEAKER_BLOCK, segments.length)}/${segments.length}`);
-  }
-
-  return kept;
+function filterSpeakerSegments(segments, individual) {
+  const name = (individual || 'Renan Santos').toLowerCase();
+  const kept = segments.filter(s => s.speaker && s.speaker.toLowerCase().includes(name));
+  // Fallback: if Gemini didn't label any segment, include all
+  return kept.length > 0 ? kept : segments;
 }
 
 // ─── Chunking ────────────────────────────────────────────────────────────────
@@ -312,19 +267,17 @@ async function processVideo(video, { skipCuration = false } = {}) {
 
   console.log(`[${id}] ${skipCuration ? 'Indexing' : 'Processing'}: ${url}`);
 
-  // 1. Fetch transcript via Gemini (single call)
+  // 1. Fetch full transcript via Gemini chunks (used for both curation and indexing)
   let segments;
   try {
     segments = await fetchTranscript(url);
     console.log(`[${id}] ${segments.length} segments from Gemini.`);
   } catch (err) {
     console.warn(`[${id}] Could not fetch transcript, skipping (will retry): ${err.message}`);
-    if (err.cause) console.warn(`  cause: ${err.cause}`);
-    if (err.status) console.warn(`  status: ${err.status}`);
     return;
   }
 
-  // 2. Curation (GPT, skipped if already approved)
+  // 2. Curation — GPT evaluates the full transcript (skipped if already approved)
   if (!skipCuration) {
     let approved, reason;
     try {
