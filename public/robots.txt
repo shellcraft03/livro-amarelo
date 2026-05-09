@@ -2,7 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /inicio
 Disallow: /sobre
-Disallow: /privacidade
 Disallow: /api/
 
 Sitemap: https://www.inevitavelgpt.com/sitemap.xml
