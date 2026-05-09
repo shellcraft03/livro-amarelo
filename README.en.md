@@ -94,10 +94,12 @@ livro-amarelo/
 │   ├── chunker.js                   # Text splitting and normalization (PDF)
 │   ├── vectorStore.js               # Embedding storage and search (Pinecone)
 │   └── rateLimiter.js               # IP-based rate limiting (shared across endpoints)
+├── curar-indexar.bat                # Interactive local menu for video management (curation + indexing)
 ├── scripts/
 │   ├── migrate_videos.mjs           # Create/update videos table in Neon
 │   ├── curate_videos.mjs            # Curate pending videos via GPT-4.1-mini
 │   ├── index_youtube.mjs            # Transcription, speaker filter, chunking, embeddings → Pinecone
+│   ├── manage_videos.mjs            # Manual management: list, approve and reject videos
 │   ├── lib/
 │   │   └── transcript_cache.mjs     # Disk-based transcript cache (avoids redundant downloads)
 │   ├── aggregate_deputados.mjs      # Fetch deputies from Câmara API and insert into Neon
@@ -176,6 +178,8 @@ node scripts/migrate_videos.mjs
 node scripts/curate_videos.mjs    # AI curation
 node scripts/index_youtube.mjs    # transcription + embeddings → Pinecone
 ```
+
+To manage videos locally on Windows, run `curar-indexar.bat` — an interactive menu with options to list pending videos, curate (automatic or manual), index, and reject already approved videos.
 
 The `curate-videos.yml` workflow runs the full pipeline via manual trigger in GitHub Actions.
 
@@ -277,6 +281,11 @@ User
 | `node scripts/migrate_videos.mjs` | Create/update videos table in Neon |
 | `node scripts/curate_videos.mjs` | Curate pending videos |
 | `node scripts/index_youtube.mjs` | Index approved interviews into Pinecone |
+| `node scripts/manage_videos.mjs --list-pending` | List videos pending curation |
+| `node scripts/manage_videos.mjs --list-all` | List all videos with their status |
+| `node scripts/manage_videos.mjs --manual-curate` | Manually curate a specific video |
+| `node scripts/manage_videos.mjs --reject-curated` | Manually reject an already approved video |
+| `curar-indexar.bat` | Interactive local menu with all the options above (Windows) |
 | `node scripts/migrate_to_pinecone.mjs` | Upload vectors from store.json to Pinecone |
 | `node scripts/aggregate_filiados.mjs ./tse_data` | Process TSE CSV and insert into Neon |
 | `node scripts/aggregate_deputados.mjs` | Fetch deputies from Câmara API and insert into Neon |

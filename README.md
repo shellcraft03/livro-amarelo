@@ -94,10 +94,12 @@ livro-amarelo/
 │   ├── chunker.js                   # Divisão e normalização de texto (PDF)
 │   ├── vectorStore.js               # Armazenamento e busca de embeddings (Pinecone)
 │   └── rateLimiter.js               # Rate limiting por IP (compartilhado entre endpoints)
+├── curar-indexar.bat                # Menu interativo local para gestão de vídeos (curadoria + indexação)
 ├── scripts/
 │   ├── migrate_videos.mjs           # Cria/atualiza tabela videos no Neon
 │   ├── curate_videos.mjs            # Curadoria de vídeos pendentes por GPT-4.1-mini
 │   ├── index_youtube.mjs            # Transcrição, filtro speaker, chunking, embeddings → Pinecone
+│   ├── manage_videos.mjs            # Gestão manual: listar, aprovar e reprovar vídeos
 │   ├── lib/
 │   │   └── transcript_cache.mjs     # Cache de transcrições em disco (evita download duplo)
 │   ├── aggregate_deputados.mjs      # Busca deputados na API da Câmara e insere no Neon
@@ -176,6 +178,8 @@ node scripts/migrate_videos.mjs
 node scripts/curate_videos.mjs    # curadoria por IA
 node scripts/index_youtube.mjs    # transcrição + embeddings → Pinecone
 ```
+
+Para gerenciar vídeos localmente, execute `curar-indexar.bat` — um menu interativo com opções para listar pendentes, curar (automático ou manual), indexar e reprovar vídeos já aprovados.
 
 O workflow `curate-videos.yml` executa o pipeline completo via disparo manual no GitHub Actions.
 
@@ -277,6 +281,11 @@ Usuário
 | `node scripts/migrate_videos.mjs` | Criar/atualizar tabela videos no Neon |
 | `node scripts/curate_videos.mjs` | Curar vídeos pendentes de aprovação |
 | `node scripts/index_youtube.mjs` | Indexar entrevistas aprovadas no Pinecone |
+| `node scripts/manage_videos.mjs --list-pending` | Listar vídeos pendentes de curadoria |
+| `node scripts/manage_videos.mjs --list-all` | Listar todos os vídeos com status |
+| `node scripts/manage_videos.mjs --manual-curate` | Curadoria manual de um vídeo específico |
+| `node scripts/manage_videos.mjs --reject-curated` | Reprovar manualmente um vídeo já aprovado |
+| `curar-indexar.bat` | Menu interativo local com todas as opções acima (Windows) |
 | `node scripts/migrate_to_pinecone.mjs` | Enviar vetores do store.json para o Pinecone |
 | `node scripts/aggregate_filiados.mjs ./tse_data` | Processar CSV do TSE e inserir no Neon |
 | `node scripts/aggregate_deputados.mjs` | Buscar deputados na API da Câmara e inserir no Neon |
