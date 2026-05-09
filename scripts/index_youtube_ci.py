@@ -20,7 +20,7 @@ from youtube_transcript_api.proxies import WebshareProxyConfig
 DATABASE_URL      = os.environ["DATABASE_URL"]
 OPENAI_API_KEY    = os.environ["OPENAI_API_KEY"]
 PINECONE_API_KEY  = os.environ["PINECONE_API_KEY"]
-PINECONE_INDEX    = os.environ.get("PINECONE_INDEX_ENTREVISTAS") or os.environ["PINECONE_INDEX"]
+PINECONE_INDEX    = os.environ["PINECONE_INDEX_ENTREVISTAS"]
 WEBSHARE_USERNAME = os.environ["WEBSHARE_PROXY_USERNAME"]
 WEBSHARE_PASSWORD = os.environ["WEBSHARE_PROXY_PASSWORD"]
 
