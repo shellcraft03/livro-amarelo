@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless';
-import { YoutubeTranscript } from 'youtube-transcript';
+import { execFileSync } from 'child_process';
 import OpenAI from 'openai';
 
 try { await import('dotenv').then(d => d.config({ path: '.env.local' })); } catch (e) {}
@@ -30,17 +30,12 @@ Responda SOMENTE com JSON válido, sem texto adicional:
 { "approved": true | false, "reason": "explicação curta em português" }`;
 
 async function fetchTranscriptSample(url) {
-  let segments;
-  try {
-    segments = await YoutubeTranscript.fetchTranscript(url, { lang: 'pt' });
-  } catch {
-    segments = await YoutubeTranscript.fetchTranscript(url);
-  }
+  const out = execFileSync('python3', ['scripts/fetch_transcript.py', url], { encoding: 'utf-8', timeout: 120000 });
+  const segments = JSON.parse(out);
 
   const full = segments.map(s => s.text).join(' ');
   const totalChars = full.length;
 
-  // Pega começo, meio e fim para dar contexto ao modelo
   const third = Math.floor(totalChars / 3);
   const sample = [
     full.slice(0, 1000),

@@ -1,0 +1,37 @@
+name: Processar vídeos do YouTube (14h · yt-dlp)
+
+on:
+  schedule:
+    - cron: '0 17 * * *'  # todo dia às 14:00 BRT (17:00 UTC)
+  workflow_dispatch:       # permite disparo manual
+
+jobs:
+  processar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Instalar dependências Node
+        run: npm install
+
+      - name: Instalar yt-dlp
+        run: pip install yt-dlp
+
+      - name: Curar vídeos pendentes
+        env:
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/curate_videos_ytdlp.mjs
+
+      - name: Indexar vídeos aprovados
+        env:
+          DATABASE_URL:     ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY:   ${{ secrets.OPENAI_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX:   ${{ secrets.PINECONE_INDEX }}
+        run: node scripts/index_youtube_ytdlp.mjs
