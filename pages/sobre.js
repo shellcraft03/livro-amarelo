@@ -45,6 +45,16 @@ export default function Sobre() {
             </p>
           </div>
 
+          <div style={s.card}>
+            <p style={s.desc}>
+              O site também conta com um chat dedicado às <strong>falas do Renan Santos</strong>. Os links
+              dos vídeos do YouTube são enviados pelos próprios usuários; a partir daí, um agente de IA
+              transcreve e avalia cada vídeo, decidindo quais têm conteúdo relevante. Os aprovados são
+              indexados automaticamente e ficam disponíveis para consulta em linguagem natural. Essa curadoria
+              é executada periodicamente de forma autônoma, mantendo o acervo sempre atualizado.
+            </p>
+          </div>
+
           <div style={s.linksCard}>
             <h2 style={s.linksTitle}>Links</h2>
             <div style={s.linksList}>

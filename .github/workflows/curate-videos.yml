@@ -1,7 +1,9 @@
 name: Processar vídeos do YouTube
 
 on:
-  workflow_dispatch:       # apenas disparo manual
+  schedule:
+    - cron: '0 21 * * *'  # todo dia às 18h00 BRT (UTC-3)
+  workflow_dispatch:
 
 jobs:
   processar:
