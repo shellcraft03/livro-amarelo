@@ -16,10 +16,12 @@ echo   [5] Curadoria manual (aprovar / reprovar)
 echo   [6] Indexar videos aprovados
 echo   [7] Reprovar video ja aprovado
 echo   [8] Resetar indice (apaga vetores Pinecone + desindexar videos)
+echo   [9] Resetar e desindexar um video especifico
 echo   [0] Sair
 echo.
-choice /c 012345678 /n /m "Escolha: "
+choice /c 0123456789 /n /m "Escolha: "
 
+if errorlevel 10 goto OPT9
 if errorlevel 9 goto OPT8
 if errorlevel 8 goto OPT7
 if errorlevel 7 goto OPT6
@@ -88,6 +90,13 @@ choice /c SN /n /m "Confirmar? [S/N]: "
 if errorlevel 2 goto MENU
 echo.
 node scripts/reset_entrevistas_index.mjs
+echo.
+pause
+goto MENU
+
+:OPT9
+echo.
+node scripts/manage_videos.mjs --reset-video
 echo.
 pause
 goto MENU

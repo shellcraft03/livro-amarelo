@@ -15,28 +15,23 @@ jobs:
           python-version: '3.12'
 
       - name: Instalar dependências Python
-        run: pip install youtube-transcript-api openai psycopg2-binary
+        run: pip install youtube-transcript-api openai psycopg2-binary pinecone requests
 
       - name: Curar vídeos
         env:
-          DATABASE_URL:               ${{ secrets.DATABASE_URL }}
-          OPENAI_API_KEY:             ${{ secrets.OPENAI_API_KEY }}
-          WEBSHARE_PROXY_USERNAME:    ${{ secrets.WEBSHARE_PROXY_USERNAME }}
-          WEBSHARE_PROXY_PASSWORD:    ${{ secrets.WEBSHARE_PROXY_PASSWORD }}
-          SYSTEM_PROMPT_CURADORIA:    ${{ secrets.SYSTEM_PROMPT_CURADORIA }}
+          DATABASE_URL:             ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
+          WEBSHARE_PROXY_USERNAME:  ${{ secrets.WEBSHARE_PROXY_USERNAME }}
+          WEBSHARE_PROXY_PASSWORD:  ${{ secrets.WEBSHARE_PROXY_PASSWORD }}
+          SYSTEM_PROMPT_CURADORIA:  ${{ secrets.SYSTEM_PROMPT_CURADORIA }}
         run: python scripts/curate_videos_ci.py
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Instalar dependências Node
-        run: npm install
 
       - name: Indexar vídeos aprovados
         env:
-          DATABASE_URL:     ${{ secrets.DATABASE_URL }}
-          OPENAI_API_KEY:   ${{ secrets.OPENAI_API_KEY }}
-          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
-          PINECONE_INDEX:   ${{ secrets.PINECONE_INDEX }}
-        run: node scripts/index_youtube.mjs
+          DATABASE_URL:             ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
+          PINECONE_API_KEY:         ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX_ENTREVISTAS: ${{ secrets.PINECONE_INDEX_ENTREVISTAS }}
+          WEBSHARE_PROXY_USERNAME:  ${{ secrets.WEBSHARE_PROXY_USERNAME }}
+          WEBSHARE_PROXY_PASSWORD:  ${{ secrets.WEBSHARE_PROXY_PASSWORD }}
+        run: python scripts/index_youtube_ci.py

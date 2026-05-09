@@ -1,9 +1,12 @@
 import { neon } from '@neondatabase/serverless';
+import { Pinecone } from '@pinecone-database/pinecone';
 import { createInterface } from 'node:readline/promises';
 
 try { await import('dotenv').then(d => d.config({ path: '.env.local' })); } catch (e) {}
 
-const sql = neon(process.env.DATABASE_URL);
+const sql  = neon(process.env.DATABASE_URL);
+const pc   = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
+const idx  = pc.index(process.env.PINECONE_INDEX_ENTREVISTAS || process.env.PINECONE_INDEX).namespace('entrevistas');
 const mode = process.argv[2];
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -164,6 +167,71 @@ async function rejectCurated() {
   rl.close();
 }
 
+async function resetVideo() {
+  const rows = await sql`
+    SELECT id, url, title, curated, indexed
+    FROM videos ORDER BY created_at DESC
+  `;
+
+  if (rows.length === 0) {
+    console.log('Nenhum vídeo cadastrado.');
+    rl.close();
+    return;
+  }
+
+  const label = v =>
+    v.curated === null ? 'pendente'  :
+    v.curated          ? 'aprovado'  : 'reprovado';
+
+  console.log(`\n${rows.length} vídeo(s):\n`);
+  for (const v of rows) {
+    const extra = v.title ? ` — ${v.title}` : '';
+    console.log(`  [${v.id}] [${label(v)}${v.indexed ? '/indexado' : ''}] ${v.url}${extra}`);
+  }
+
+  const idStr = await rl.question('\nID do vídeo para resetar (Enter para cancelar): ');
+  const id = parseInt(idStr.trim(), 10);
+  if (!id) { rl.close(); return; }
+
+  const video = rows.find(v => v.id === id);
+  if (!video) { console.log('ID não encontrado.'); rl.close(); return; }
+
+  console.log(`\nVídeo: ${video.url}`);
+  const confirm = await rl.question('Confirmar reset de curadoria e indexação? [S/N]: ');
+  if (!confirm.trim().toLowerCase().startsWith('s')) {
+    console.log('Cancelado.');
+    rl.close();
+    return;
+  }
+
+  if (video.indexed) {
+    const videoId = video.url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)?.[1];
+    if (videoId) {
+      const ids = [];
+      for await (const id of idx.list({ prefix: `yt-${videoId}-` })) ids.push(id);
+      if (ids.length > 0) {
+        await idx.deleteMany(ids);
+        console.log(`${ids.length} vetores removidos do Pinecone.`);
+      } else {
+        console.log('Nenhum vetor encontrado no Pinecone para este vídeo.');
+      }
+    }
+  }
+
+  await sql`
+    UPDATE videos
+    SET curated          = NULL,
+        curated_at       = NULL,
+        rejection_reason = NULL,
+        indexed          = false,
+        indexed_at       = NULL
+    WHERE id = ${id}
+  `;
+
+  console.log(`\nVídeo ${id} resetado com sucesso.`);
+  rl.close();
+}
+
 if (mode === '--list-pending') {
   await listPending();
 } else if (mode === '--list-all') {
@@ -172,8 +240,10 @@ if (mode === '--list-pending') {
   await manualCurate();
 } else if (mode === '--reject-curated') {
   await rejectCurated();
+} else if (mode === '--reset-video') {
+  await resetVideo();
 } else {
-  console.log('Uso: node scripts/manage_videos.mjs [--list-pending | --list-all | --manual-curate | --reject-curated]');
+  console.log('Uso: node scripts/manage_videos.mjs [--list-pending | --list-all | --manual-curate | --reject-curated | --reset-video]');
 }
 
 rl.close();
