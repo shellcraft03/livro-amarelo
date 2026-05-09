@@ -102,34 +102,21 @@ async function fetchTranscript(url) {
       contents: [{ parts: [{ text:
         `Transcribe the speech from minute ${startMin} to minute ${endMin} of this YouTube video: ${cleanUrl}\n\n` +
         `Identify each speaker by name or role (e.g. "Renan Santos", "Entrevistador", "Apresentador").\n` +
-        `Return ONLY a valid JSON array: [{"speaker": "name or role", "text": "spoken words", "offset_seconds": N}]\n` +
-        `offset_seconds must be the absolute time from the video start (minute ${startMin} = ${startMin * 60}s). No extra text.`,
+        `Format each line as: [MM:SS] Speaker: spoken text\n` +
+        `MM:SS is the absolute timestamp from the video start. One line per speech segment. No extra text.`,
       }] }],
-      config: { responseMimeType: 'application/json' },
     });
 
-    let parsed;
-    try {
-      parsed = JSON.parse(res.text);
-    } catch {
-      const lastClose = res.text.lastIndexOf('},');
-      if (lastClose > 0) {
-        try { parsed = JSON.parse(res.text.slice(0, lastClose + 1) + ']'); }
-        catch { console.warn(`  chunk ${startMin}-${endMin}min: JSON recovery failed, skipping`); continue; }
-      } else {
-        console.warn(`  chunk ${startMin}-${endMin}min: invalid JSON, skipping`);
-        continue;
-      }
+    let count = 0;
+    for (const line of res.text.split('\n')) {
+      const m = line.match(/\[(\d+):(\d+)\]\s+([^:]+):\s+(.+)/);
+      if (!m) continue;
+      const offset  = (parseInt(m[1]) * 60 + parseInt(m[2])) * 1000;
+      const speaker = m[3].trim();
+      const text    = m[4].trim();
+      if (text) { allSegments.push({ speaker, text, offset }); count++; }
     }
-
-    for (const s of parsed) {
-      const text = String(s.text || '').trim();
-      if (text) allSegments.push({
-        text,
-        speaker: String(s.speaker || '').trim(),
-        offset:  Math.round((Number(s.offset_seconds) || startMin * 60) * 1000),
-      });
-    }
+    if (count === 0) console.warn(`  chunk ${startMin}-${endMin}min: no lines parsed`);
     process.stdout.write(`\r  transcribed ${endMin}/${totalMinutes} min (${allSegments.length} segments)`);
   }
 
