@@ -273,7 +273,7 @@ export default function QA() {
     ctx.fillRect(0, H - FOOTER_H, W, FOOTER_H);
     ctx.fillStyle = '#FCBF22';
     ctx.font = '700 18px Arial, sans-serif';
-    ctx.fillText('O Livro Amarelo', PAD, H - FOOTER_H + 44);
+    ctx.fillText('Inevitável GPT', PAD, H - FOOTER_H + 44);
     ctx.fillStyle = '#666666';
     ctx.font = '400 16px Arial, sans-serif';
     const right = 'Partido Missão · Brasil 2026';

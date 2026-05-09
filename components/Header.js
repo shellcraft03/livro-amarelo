@@ -64,7 +64,7 @@ export default function Header({ currentPage, dark, toggleDark, onCurrentPageCli
         <a href="/" style={s.headerLogo}>
           <img src="/fasciculo3.png" alt="" style={s.headerThumb} />
           <div>
-            <div style={s.headerTitle}>O Livro Amarelo</div>
+            <div style={s.headerTitle}>Inevitável GPT</div>
             <div style={s.headerSub}>O Futuro é Glorioso</div>
           </div>
         </a>

@@ -98,7 +98,7 @@ export default function Entry() {
           <div style={s.card}>
             <h2 style={s.cardTitle}>Verificação<br />necessária</h2>
             <p style={s.cardDesc}>
-              Confirme que você é humano para explorar as propostas do Livro Amarelo.
+              Confirme que você é humano para explorar os recursos.
             </p>
 
             <div style={s.divider} />
