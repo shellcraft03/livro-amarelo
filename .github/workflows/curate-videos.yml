@@ -1,9 +1,7 @@
 name: Processar vídeos do YouTube
 
 on:
-  schedule:
-    - cron: '0 21 * * *'  # todo dia às 18:00 BRT (21:00 UTC)
-  workflow_dispatch:       # permite disparo manual
+  workflow_dispatch:       # apenas disparo manual
 
 jobs:
   processar:
@@ -19,11 +17,16 @@ jobs:
       - name: Instalar dependências
         run: npm install
 
-      - name: Processar vídeos (curadoria + indexação)
+      - name: Curar vídeos
+        env:
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/curate_videos.mjs
+
+      - name: Indexar vídeos aprovados
         env:
           DATABASE_URL:     ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY:   ${{ secrets.OPENAI_API_KEY }}
           PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
           PINECONE_INDEX:   ${{ secrets.PINECONE_INDEX }}
-          GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
-        run: node scripts/process_videos.mjs
+        run: node scripts/index_youtube.mjs

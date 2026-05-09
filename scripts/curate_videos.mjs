@@ -1,14 +1,12 @@
 import { neon } from '@neondatabase/serverless';
-import { GoogleGenAI } from '@google/genai';
+import { YoutubeTranscript } from 'youtube-transcript';
 import OpenAI from 'openai';
+import { loadCached, saveCache } from './lib/transcript_cache.mjs';
 
 try { await import('dotenv').then(d => d.config({ path: '.env.local' })); } catch (e) {}
 
 const sql    = neon(process.env.DATABASE_URL);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const ai     = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-const TRANSCRIPT_SAMPLE_CHARS = 3000;
 
 const SYSTEM_PROMPT = `Você é um curador de conteúdo de uma plataforma política sobre Renan Santos, pré-candidato à presidência do Brasil pelo Partido Missão.
 
@@ -30,35 +28,31 @@ CRITÉRIOS DE REPROVAÇÃO — reprovar se qualquer um for verdadeiro:
 Responda SOMENTE com JSON válido, sem texto adicional:
 { "approved": true | false, "reason": "explicação curta em português" }`;
 
-function cleanYouTubeUrl(url) {
+function extractVideoId(url) {
   const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  return m ? `https://www.youtube.com/watch?v=${m[1]}` : url;
+  return m ? m[1] : null;
 }
 
-async function fetchTranscriptSample(url) {
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: [{
-      parts: [
-        { fileData: { fileUri: cleanYouTubeUrl(url), mimeType: 'video/mp4' } },
-        { text: 'Transcribe this video in full. Return a JSON array: [{"text": "...", "offset_seconds": 0}]. Return only valid JSON.' },
-      ],
-    }],
-    config: { responseMimeType: 'application/json' },
-  });
+async function fetchTranscript(url, videoId) {
+  if (videoId) {
+    const cached = await loadCached(videoId);
+    if (cached) {
+      const full = cached.map(s => s.text).join(' ');
+      return { full, totalChars: full.length };
+    }
+  }
 
-  const segments = JSON.parse(response.text);
+  let segments;
+  try {
+    segments = await YoutubeTranscript.fetchTranscript(url, { lang: 'pt' });
+  } catch {
+    segments = await YoutubeTranscript.fetchTranscript(url);
+  }
+
+  if (videoId) await saveCache(videoId, segments);
+
   const full = segments.map(s => s.text).join(' ');
-  const totalChars = full.length;
-
-  const third = Math.floor(totalChars / 3);
-  const sample = [
-    full.slice(0, 1000),
-    full.slice(third, third + 1000),
-    full.slice(-1000),
-  ].join('\n\n[...]\n\n');
-
-  return { sample: sample.slice(0, TRANSCRIPT_SAMPLE_CHARS), totalChars };
+  return { full, totalChars: full.length };
 }
 
 function sanitizeField(value, maxLen = 200) {
@@ -73,9 +67,10 @@ async function curate(video) {
 
   console.log(`[${id}] Curando: ${url}`);
 
-  let sample, totalChars;
+  const videoId = extractVideoId(url);
+  let full, totalChars;
   try {
-    ({ sample, totalChars } = await fetchTranscriptSample(url));
+    ({ full, totalChars } = await fetchTranscript(url, videoId));
   } catch (err) {
     console.warn(`[${id}] Não foi possível obter transcrição, pulando (será tentado novamente): ${err.message}`);
     return;
@@ -85,7 +80,7 @@ async function curate(video) {
     title       ? `Título informado: ${title}` : null,
     individual  ? `Entrevistado informado: ${individual}` : null,
     `Tamanho total da transcrição: ~${Math.round(totalChars / 5)} palavras`,
-    `\nTrecho da transcrição:\n${sample}`,
+    `\nTranscrição:\n${full}`,
   ].filter(Boolean).join('\n');
 
   let raw;
