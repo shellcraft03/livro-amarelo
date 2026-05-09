@@ -68,18 +68,18 @@ export default function Entry() {
       <Head>
         <title>o Livro Amarelo — O Futuro é Glorioso</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="description" content="Explore as propostas do Livro Amarelo — um projeto de país para transformar o Brasil na quinta maior economia do mundo. Faça perguntas em linguagem natural e receba respostas baseadas no documento." />
+        <meta name="description" content="Explore as propostas do Livro Amarelo e as entrevistas de Renan Santos — um projeto de país para transformar o Brasil na quinta maior economia do mundo." />
         <meta property="og:type" content="website" />
         <meta property="og:locale" content="pt_BR" />
         <meta property="og:url" content="https://www.inevitavelgpt.com" />
-        <meta property="og:title" content="o Livro Amarelo — O Futuro é Glorioso" />
-        <meta property="og:description" content="Explore as propostas do Livro Amarelo — um projeto de país para transformar o Brasil na quinta maior economia do mundo." />
+        <meta property="og:title" content="Inevitável GPT" />
+        <meta property="og:description" content="Explore as propostas do Livro Amarelo e as entrevistas de Renan Santos — um projeto de país para transformar o Brasil na quinta maior economia do mundo." />
         <meta property="og:image" content="https://www.inevitavelgpt.com/og.png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="o Livro Amarelo — O Futuro é Glorioso" />
-        <meta name="twitter:description" content="Explore as propostas do Livro Amarelo — um projeto de país para transformar o Brasil na quinta maior economia do mundo." />
+        <meta name="twitter:title" content="Inevitável GPT" />
+        <meta name="twitter:description" content="Explore as propostas do Livro Amarelo e as entrevistas de Renan Santos — um projeto de país para transformar o Brasil na quinta maior economia do mundo." />
         <meta name="twitter:image" content="https://www.inevitavelgpt.com/og.png" />
       </Head>
 
