@@ -23,7 +23,7 @@ jobs:
           OPENAI_API_KEY:             ${{ secrets.OPENAI_API_KEY }}
           WEBSHARE_PROXY_USERNAME:    ${{ secrets.WEBSHARE_PROXY_USERNAME }}
           WEBSHARE_PROXY_PASSWORD:    ${{ secrets.WEBSHARE_PROXY_PASSWORD }}
-          SYSTEM_PROMPT_ENTREVISTAS:  ${{ secrets.SYSTEM_PROMPT_ENTREVISTAS }}
+          SYSTEM_PROMPT_CURADORIA:    ${{ secrets.SYSTEM_PROMPT_CURADORIA }}
         run: python scripts/curate_videos_ci.py
 
       - uses: actions/setup-node@v4

@@ -17,7 +17,7 @@ DATABASE_URL       = os.environ["DATABASE_URL"]
 OPENAI_API_KEY     = os.environ["OPENAI_API_KEY"]
 WEBSHARE_USERNAME  = os.environ["WEBSHARE_PROXY_USERNAME"]
 WEBSHARE_PASSWORD  = os.environ["WEBSHARE_PROXY_PASSWORD"]
-SYSTEM_PROMPT      = os.environ["SYSTEM_PROMPT_ENTREVISTAS"]
+SYSTEM_PROMPT      = os.environ["SYSTEM_PROMPT_CURADORIA"]
 
 ytt_api = YouTubeTranscriptApi(
     proxy_config=WebshareProxyConfig(
