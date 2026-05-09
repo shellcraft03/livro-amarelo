@@ -1,11 +1,12 @@
 import { neon } from '@neondatabase/serverless';
-import { YoutubeTranscript } from 'youtube-transcript';
+import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 
 try { await import('dotenv').then(d => d.config({ path: '.env.local' })); } catch (e) {}
 
 const sql    = neon(process.env.DATABASE_URL);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const ai     = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const TRANSCRIPT_SAMPLE_CHARS = 3000;
 
@@ -29,18 +30,27 @@ CRITÉRIOS DE REPROVAÇÃO — reprovar se qualquer um for verdadeiro:
 Responda SOMENTE com JSON válido, sem texto adicional:
 { "approved": true | false, "reason": "explicação curta em português" }`;
 
-async function fetchTranscriptSample(url) {
-  let segments;
-  try {
-    segments = await YoutubeTranscript.fetchTranscript(url, { lang: 'pt' });
-  } catch {
-    segments = await YoutubeTranscript.fetchTranscript(url);
-  }
+function cleanYouTubeUrl(url) {
+  const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? `https://www.youtube.com/watch?v=${m[1]}` : url;
+}
 
+async function fetchTranscriptSample(url) {
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [{
+      parts: [
+        { fileData: { fileUri: cleanYouTubeUrl(url), mimeType: 'video/mp4' } },
+        { text: 'Transcribe this video in full. Return a JSON array: [{"text": "...", "offset_seconds": 0}]. Return only valid JSON.' },
+      ],
+    }],
+    config: { responseMimeType: 'application/json' },
+  });
+
+  const segments = JSON.parse(response.text);
   const full = segments.map(s => s.text).join(' ');
   const totalChars = full.length;
 
-  // Pega começo, meio e fim para dar contexto ao modelo
   const third = Math.floor(totalChars / 3);
   const sample = [
     full.slice(0, 1000),

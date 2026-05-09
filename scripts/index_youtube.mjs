@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { Pinecone } from '@pinecone-database/pinecone';
-import { YoutubeTranscript } from 'youtube-transcript';
+import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 try { await import('dotenv').then(d => d.config({ path: '.env.local' })); } catch (e) {}
 
@@ -8,6 +8,7 @@ const sql    = neon(process.env.DATABASE_URL);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const pc     = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
 const index  = pc.index(process.env.PINECONE_INDEX).namespace('entrevistas');
+const ai     = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 const CHUNK_SIZE      = 400;
@@ -87,12 +88,28 @@ async function fetchVideoMetadata(videoId) {
   }
 }
 
+function cleanYouTubeUrl(url) {
+  const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? `https://www.youtube.com/watch?v=${m[1]}` : url;
+}
+
 async function fetchTranscript(url) {
-  try {
-    return await YoutubeTranscript.fetchTranscript(url, { lang: 'pt' });
-  } catch {
-    return await YoutubeTranscript.fetchTranscript(url);
-  }
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [{
+      parts: [
+        { fileData: { fileUri: cleanYouTubeUrl(url), mimeType: 'video/mp4' } },
+        { text: 'Transcribe this video in full. Return a JSON array: [{"text": "...", "offset_seconds": 0}]. Return only valid JSON.' },
+      ],
+    }],
+    config: { responseMimeType: 'application/json' },
+  });
+
+  const parsed = JSON.parse(response.text);
+  return parsed.map(s => ({
+    text:   String(s.text || '').trim(),
+    offset: Math.round((s.offset_seconds || 0) * 1000),
+  }));
 }
 
 async function embedBatch(texts) {
