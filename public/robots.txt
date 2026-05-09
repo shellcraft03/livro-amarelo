@@ -2,6 +2,10 @@ User-agent: *
 Allow: /
 Disallow: /inicio
 Disallow: /sobre
+Disallow: /deputados
+Disallow: /filiados
+Disallow: /entrevistas
+Disallow: /renan-santos-responde
 Disallow: /api/
 
 Sitemap: https://www.inevitavelgpt.com/sitemap.xml
