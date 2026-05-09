@@ -142,6 +142,16 @@ export default function Entrevistas() {
                 {submitting ? '…' : 'Enviar'}
               </button>
             </form>
+            {submitting && (
+              <div style={s.submitLoadingWrap}>
+                <div style={{ ...s.loadingBar, marginBottom: '8px' }}>
+                  <span style={{ ...s.loadingDot, animationDelay: '0ms' }} />
+                  <span style={{ ...s.loadingDot, animationDelay: '180ms' }} />
+                  <span style={{ ...s.loadingDot, animationDelay: '360ms' }} />
+                </div>
+                <p style={s.submitLoadingText}>Analisando vídeo…</p>
+              </div>
+            )}
             {submitStatus && (
               <p style={submitStatus.ok ? s.submitOk : s.submitErr}>{submitStatus.msg}</p>
             )}
@@ -326,6 +336,16 @@ function getStyles(dark) {
       fontSize: '0.85rem',
       fontWeight: 600,
       color: '#FF0000',
+    },
+    submitLoadingWrap: {
+      marginTop: '16px',
+      textAlign: 'center',
+    },
+    submitLoadingText: {
+      color: textMuted,
+      fontSize: '0.85rem',
+      fontWeight: 500,
+      margin: 0,
     },
     submitInfo: {
       marginTop: '12px',
