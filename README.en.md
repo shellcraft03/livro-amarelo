@@ -138,7 +138,8 @@ TURNSTILE_SECRET=0x...
 
 # Pinecone
 PINECONE_API_KEY=pcsk-...
-PINECONE_INDEX=your-index-name
+PINECONE_INDEX=your-index-name               # book index (1536 dim, text-embedding-3-small)
+PINECONE_INDEX_ENTREVISTAS=your-index-name   # interviews index (3072 dim, text-embedding-3-large)
 
 # Enable RAG pipeline
 USE_RAG=true
@@ -151,7 +152,7 @@ UPSTASH_REDIS_REST_TOKEN=...
 DATABASE_URL=postgresql://...
 ```
 
-> **Pinecone:** create an index with dimension **1536** (compatible with `text-embedding-3-small`). The project uses two namespaces: `default` for the Livro Amarelo and `entrevistas` for YouTube interviews.
+> **Pinecone:** the project uses two separate indexes. `PINECONE_INDEX`: dimension **1536**, compatible with `text-embedding-3-small`, namespace `default` (Livro Amarelo). `PINECONE_INDEX_ENTREVISTAS`: dimension **3072**, compatible with `text-embedding-3-large`, namespace `entrevistas` (YouTube). If `PINECONE_INDEX_ENTREVISTAS` is not set, the code falls back to `PINECONE_INDEX`.
 
 > **Neon:** the `videos` table is created/updated by `migrate_videos.mjs`. Run it once before indexing any interviews.
 

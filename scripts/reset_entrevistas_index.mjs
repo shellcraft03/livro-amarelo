@@ -7,8 +7,16 @@ const sql = neon(process.env.DATABASE_URL);
 const pc  = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
 
 console.log('Apagando vetores do namespace "entrevistas" no Pinecone...');
-await pc.index(process.env.PINECONE_INDEX).namespace('entrevistas').deleteAll();
-console.log('Vetores apagados.');
+try {
+  await pc.index(process.env.PINECONE_INDEX_ENTREVISTAS || process.env.PINECONE_INDEX).namespace('entrevistas').deleteAll();
+  console.log('Vetores apagados.');
+} catch (e) {
+  if (e.name === 'PineconeNotFoundError') {
+    console.log('Namespace vazio ou inexistente — nada a apagar.');
+  } else {
+    throw e;
+  }
+}
 
 console.log('Desindexando vídeos no banco...');
 const result = await sql`UPDATE videos SET indexed = false, indexed_at = NULL WHERE indexed = true`;

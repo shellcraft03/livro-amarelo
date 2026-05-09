@@ -8,7 +8,7 @@ try { await import('dotenv').then(d => d.config({ path: '.env.local' })); } catc
 const sql    = neon(process.env.DATABASE_URL);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const pc     = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
-const index  = pc.index(process.env.PINECONE_INDEX).namespace('entrevistas');
+const index  = pc.index(process.env.PINECONE_INDEX_ENTREVISTAS || process.env.PINECONE_INDEX).namespace('entrevistas');
 
 const EMBEDDING_MODEL = 'text-embedding-3-large';
 const CHUNK_SIZE      = 400;
@@ -104,7 +104,7 @@ async function fetchTranscript(url, videoId) {
 }
 
 async function embedBatch(texts) {
-  const res = await openai.embeddings.create({ model: EMBEDDING_MODEL, dimensions: 1536, input: texts });
+  const res = await openai.embeddings.create({ model: EMBEDDING_MODEL, input: texts });
   return res.data.map(d => d.embedding);
 }
 

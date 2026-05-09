@@ -89,7 +89,7 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: 'Daily limit reached' });
     }
 
-    const emb = await client.embeddings.create({ model: 'text-embedding-3-large', dimensions: 1536, input: question });
+    const emb = await client.embeddings.create({ model: 'text-embedding-3-large', input: question });
     const embedding = emb?.data?.[0]?.embedding;
 
     let sources = [];
