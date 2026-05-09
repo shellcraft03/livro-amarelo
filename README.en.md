@@ -50,8 +50,8 @@ This web application allows users to explore the content of O Livro Amarelo and 
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 16 · React 18 |
-| LLM | OpenAI GPT-4.1-mini |
-| Embeddings | OpenAI text-embedding-3-small |
+| LLM | OpenAI GPT-4.1-mini (book) · GPT-4.1 (interviews) |
+| Embeddings | OpenAI text-embedding-3-small (book) · text-embedding-3-large (interviews) |
 | Vector store | Pinecone — namespace `default` (book) and `entrevistas` (YouTube) |
 | Relational DB | Neon Postgres (serverless) |
 | YouTube transcription | youtube-transcript |
@@ -100,6 +100,7 @@ livro-amarelo/
 │   ├── curate_videos.mjs            # Curate pending videos via GPT-4.1-mini
 │   ├── index_youtube.mjs            # Transcription, speaker filter, chunking, embeddings → Pinecone
 │   ├── manage_videos.mjs            # Manual management: list, approve and reject videos
+│   ├── reset_entrevistas_index.mjs  # Delete Pinecone vectors and unindex videos in Neon
 │   ├── lib/
 │   │   └── transcript_cache.mjs     # Disk-based transcript cache (avoids redundant downloads)
 │   ├── aggregate_deputados.mjs      # Fetch deputies from Câmara API and insert into Neon
@@ -285,6 +286,7 @@ User
 | `node scripts/manage_videos.mjs --list-all` | List all videos with their status |
 | `node scripts/manage_videos.mjs --manual-curate` | Manually curate a specific video |
 | `node scripts/manage_videos.mjs --reject-curated` | Manually reject an already approved video |
+| `node scripts/reset_entrevistas_index.mjs` | Delete Pinecone vectors and unindex all videos |
 | `curar-indexar.bat` | Interactive local menu with all the options above (Windows) |
 | `node scripts/migrate_to_pinecone.mjs` | Upload vectors from store.json to Pinecone |
 | `node scripts/aggregate_filiados.mjs ./tse_data` | Process TSE CSV and insert into Neon |

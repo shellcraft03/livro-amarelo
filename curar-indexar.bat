@@ -15,10 +15,12 @@ echo   [4] Curadoria automatica (via IA)
 echo   [5] Curadoria manual (aprovar / reprovar)
 echo   [6] Indexar videos aprovados
 echo   [7] Reprovar video ja aprovado
+echo   [8] Resetar indice (apaga vetores Pinecone + desindexar videos)
 echo   [0] Sair
 echo.
-choice /c 01234567 /n /m "Escolha: "
+choice /c 012345678 /n /m "Escolha: "
 
+if errorlevel 9 goto OPT8
 if errorlevel 8 goto OPT7
 if errorlevel 7 goto OPT6
 if errorlevel 6 goto OPT5
@@ -73,6 +75,19 @@ goto MENU
 :OPT7
 echo.
 node scripts/manage_videos.mjs --reject-curated
+echo.
+pause
+goto MENU
+
+:OPT8
+echo.
+echo   ATENCAO: esta operacao apaga todos os vetores do Pinecone
+echo   e desmarca todos os videos como nao indexados.
+echo.
+choice /c SN /n /m "Confirmar? [S/N]: "
+if errorlevel 2 goto MENU
+echo.
+node scripts/reset_entrevistas_index.mjs
 echo.
 pause
 goto MENU

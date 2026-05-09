@@ -89,7 +89,7 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: 'Daily limit reached' });
     }
 
-    const emb = await client.embeddings.create({ model: 'text-embedding-3-small', input: question });
+    const emb = await client.embeddings.create({ model: 'text-embedding-3-large', dimensions: 1536, input: question });
     const embedding = emb?.data?.[0]?.embedding;
 
     let sources = [];
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
 
     try {
       const stream = await client.chat.completions.create({
-        model: 'gpt-4.1-mini',
+        model: 'gpt-4.1',
         messages,
         max_tokens: 800,
         stream: true,

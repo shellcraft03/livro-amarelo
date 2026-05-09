@@ -50,8 +50,8 @@ Esta aplicação web permite explorar o conteúdo do Livro Amarelo e as entrevis
 | Camada | Tecnologia |
 |---|---|
 | Frontend | Next.js 16 · React 18 |
-| LLM | OpenAI GPT-4.1-mini |
-| Embeddings | OpenAI text-embedding-3-small |
+| LLM | OpenAI GPT-4.1-mini (livro) · GPT-4.1 (entrevistas) |
+| Embeddings | OpenAI text-embedding-3-small (livro) · text-embedding-3-large (entrevistas) |
 | Vector store | Pinecone — namespace `default` (livro) e `entrevistas` (YouTube) |
 | Banco relacional | Neon Postgres (serverless) |
 | Transcrição YouTube | youtube-transcript |
@@ -100,6 +100,7 @@ livro-amarelo/
 │   ├── curate_videos.mjs            # Curadoria de vídeos pendentes por GPT-4.1-mini
 │   ├── index_youtube.mjs            # Transcrição, filtro speaker, chunking, embeddings → Pinecone
 │   ├── manage_videos.mjs            # Gestão manual: listar, aprovar e reprovar vídeos
+│   ├── reset_entrevistas_index.mjs  # Apaga vetores do Pinecone e desindexar vídeos no Neon
 │   ├── lib/
 │   │   └── transcript_cache.mjs     # Cache de transcrições em disco (evita download duplo)
 │   ├── aggregate_deputados.mjs      # Busca deputados na API da Câmara e insere no Neon
@@ -285,6 +286,7 @@ Usuário
 | `node scripts/manage_videos.mjs --list-all` | Listar todos os vídeos com status |
 | `node scripts/manage_videos.mjs --manual-curate` | Curadoria manual de um vídeo específico |
 | `node scripts/manage_videos.mjs --reject-curated` | Reprovar manualmente um vídeo já aprovado |
+| `node scripts/reset_entrevistas_index.mjs` | Apagar vetores do Pinecone e desindexar todos os vídeos |
 | `curar-indexar.bat` | Menu interativo local com todas as opções acima (Windows) |
 | `node scripts/migrate_to_pinecone.mjs` | Enviar vetores do store.json para o Pinecone |
 | `node scripts/aggregate_filiados.mjs ./tse_data` | Processar CSV do TSE e inserir no Neon |

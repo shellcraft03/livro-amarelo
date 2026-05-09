@@ -204,6 +204,10 @@ export default function RenanSantosResponde() {
             </div>
           </div>
 
+          <div style={s.disclaimer}>
+            <span style={s.disclaimerAlert}>Atenção</span> Respostas geradas por IA com base nas entrevistas indexadas — podem conter imprecisões. Consulte sempre as fontes citadas.
+          </div>
+
           {!answer && !isProcessing && (
             <div style={s.suggestSection}>
               <p style={s.suggestLabel}>Sugestões</p>
@@ -373,6 +377,22 @@ function getStyles(dark) {
       cursor: 'not-allowed',
       whiteSpace: 'nowrap',
       flexShrink: 0,
+    },
+    disclaimer: {
+      fontSize: '0.78rem',
+      color: textMuted,
+      textAlign: 'center',
+      padding: '10px 16px',
+      marginBottom: '20px',
+      borderRadius: '8px',
+      background: dark ? '#161616' : '#F8F8F8',
+      border: `1px solid ${dark ? '#2A2A2A' : '#E8E8E8'}`,
+      lineHeight: 1.5,
+    },
+    disclaimerAlert: {
+      color: '#CC0000',
+      fontWeight: 700,
+      marginRight: '4px',
     },
     suggestSection: { marginBottom: '28px' },
     suggestLabel: {
