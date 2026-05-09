@@ -34,7 +34,7 @@ Esta aplicação web permite explorar o conteúdo do Livro Amarelo e as entrevis
 
 - **RAG completo** — busca semântica por embeddings + geração de resposta contextualizada
 - **Renan Responde** — Q&A com base em entrevistas do YouTube: transcrição automática, filtro de speaker por IA, chunking por fronteira de frase, citações inline `[1][2]` com link direto para o trecho no vídeo
-- **Curadoria automática de entrevistas** — agente de IA avalia diariamente links submetidos por usuários e aprova/reprova com base em critérios (entrevistado principal, entrevista completa, canal independente, conteúdo político substantivo)
+- **Curadoria automática de entrevistas** — agente de IA avalia periodicamente links submetidos por usuários e aprova/reprova com base em critérios (entrevistado principal, entrevista completa, canal independente, conteúdo político substantivo)
 - **Submissão de vídeos por usuários** — formulário na página `/entrevistas` para sugerir links do YouTube; protegido por Turnstile + rate limit
 - **Proteção por CAPTCHA** — Cloudflare Turnstile com token renovado por requisição
 - **Rate limiting compartilhado** — 10 req/min e 50 req/dia por IP via Sliding Window (`@upstash/ratelimit`); contadores compartilhados entre todos os endpoints (chat do livro, chat de entrevistas e submissão de vídeos) · fallback em memória (dev local)
@@ -59,7 +59,7 @@ Esta aplicação web permite explorar o conteúdo do Livro Amarelo e as entrevis
 | Rate limit | @upstash/ratelimit · Sliding Window · Upstash Redis (serverless) · fallback em memória (dev local) |
 | Analytics | Google Analytics 4 |
 | PDF parsing | pdf-parse |
-| Automação de dados | GitHub Actions (cron diário e semanal) |
+| Automação de dados | GitHub Actions (cron semanal + disparo manual) |
 
 ---
 
@@ -70,7 +70,7 @@ livro-amarelo/
 ├── .github/
 │   └── workflows/
 │       ├── update-filiados.yml      # Cron semanal: atualiza filiados (TSE) e deputados (Câmara API)
-│       └── curate-videos.yml        # Cron diário 18h BRT: curadoria + indexação de entrevistas YouTube
+│       └── curate-videos.yml        # Disparo manual: curadoria + indexação de entrevistas YouTube
 ├── pages/
 │   ├── index.js                     # Página de verificação (Turnstile)
 │   ├── inicio.js                    # Interface Q&A — Livro Amarelo
@@ -98,6 +98,8 @@ livro-amarelo/
 │   ├── migrate_videos.mjs           # Cria/atualiza tabela videos no Neon
 │   ├── curate_videos.mjs            # Curadoria de vídeos pendentes por GPT-4.1-mini
 │   ├── index_youtube.mjs            # Transcrição, filtro speaker, chunking, embeddings → Pinecone
+│   ├── lib/
+│   │   └── transcript_cache.mjs     # Cache de transcrições em disco (evita download duplo)
 │   ├── aggregate_deputados.mjs      # Busca deputados na API da Câmara e insere no Neon
 │   ├── aggregate_filiados.mjs       # Processa CSV do TSE (streaming) e insere no Neon
 │   ├── index_pdf.mjs                # Indexar PDFs da pasta data/books/
@@ -175,7 +177,7 @@ node scripts/curate_videos.mjs    # curadoria por IA
 node scripts/index_youtube.mjs    # transcrição + embeddings → Pinecone
 ```
 
-A partir da primeira carga, o workflow `curate-videos.yml` executa o pipeline completo automaticamente todo dia às 18h BRT.
+O workflow `curate-videos.yml` executa o pipeline completo via disparo manual no GitHub Actions.
 
 ### 5. Popular o banco de filiados e deputados
 
@@ -240,10 +242,10 @@ Usuário
 └───────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────┐
-│  GitHub Actions — curate-videos.yml       │  todo dia 18h BRT
+│  GitHub Actions — curate-videos.yml       │  disparo manual
 │  1. curate_videos.mjs                     │
 │     Busca vídeos pendentes (Neon)         │
-│     Amostra de transcrição → GPT avalia   │
+│     Transcrição completa → GPT avalia     │
 │     Aprova ou reprova com motivo          │
 │  2. index_youtube.mjs                     │
 │     Transcrição completa via YouTube API  │

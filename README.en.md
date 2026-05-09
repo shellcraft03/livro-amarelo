@@ -34,7 +34,7 @@ This web application allows users to explore the content of O Livro Amarelo and 
 
 - **Full RAG pipeline** — semantic search via embeddings + contextualized response generation
 - **Renan Responde** — Q&A based on YouTube interviews: automatic transcription, AI speaker filtering, sentence-boundary chunking, inline citations `[1][2]` with direct links to the exact moment in the video
-- **Automatic interview curation** — an AI agent daily evaluates links submitted by users and approves/rejects them based on defined criteria (main interviewee, complete interview, independent channel, substantive political content)
+- **Automatic interview curation** — an AI agent periodically evaluates links submitted by users and approves/rejects them based on defined criteria (main interviewee, complete interview, independent channel, substantive political content)
 - **User video submission** — form on the `/entrevistas` page to suggest YouTube links; protected by Turnstile + rate limit
 - **CAPTCHA protection** — Cloudflare Turnstile with a fresh token per request
 - **Shared rate limiting** — 10 req/min and 50 req/day per IP via Sliding Window (`@upstash/ratelimit`); counters shared across all endpoints (book chat, interview chat, and video submission) · in-memory fallback (local dev)
@@ -59,7 +59,7 @@ This web application allows users to explore the content of O Livro Amarelo and 
 | Rate limit | @upstash/ratelimit · Sliding Window · Upstash Redis (serverless) · in-memory fallback (local dev) |
 | Analytics | Google Analytics 4 |
 | PDF parsing | pdf-parse |
-| Data automation | GitHub Actions (daily and weekly cron) |
+| Data automation | GitHub Actions (weekly cron + manual trigger) |
 
 ---
 
@@ -70,7 +70,7 @@ livro-amarelo/
 ├── .github/
 │   └── workflows/
 │       ├── update-filiados.yml      # Weekly cron: updates membership (TSE) and deputies (Câmara API)
-│       └── curate-videos.yml        # Daily cron 18:00 BRT: curation + indexing of YouTube interviews
+│       └── curate-videos.yml        # Manual trigger: curation + indexing of YouTube interviews
 ├── pages/
 │   ├── index.js                     # Verification page (Turnstile)
 │   ├── inicio.js                    # Q&A interface — Livro Amarelo
@@ -98,6 +98,8 @@ livro-amarelo/
 │   ├── migrate_videos.mjs           # Create/update videos table in Neon
 │   ├── curate_videos.mjs            # Curate pending videos via GPT-4.1-mini
 │   ├── index_youtube.mjs            # Transcription, speaker filter, chunking, embeddings → Pinecone
+│   ├── lib/
+│   │   └── transcript_cache.mjs     # Disk-based transcript cache (avoids redundant downloads)
 │   ├── aggregate_deputados.mjs      # Fetch deputies from Câmara API and insert into Neon
 │   ├── aggregate_filiados.mjs       # Stream TSE CSV and insert into Neon
 │   ├── index_pdf.mjs                # Index PDFs from data/books/
@@ -175,7 +177,7 @@ node scripts/curate_videos.mjs    # AI curation
 node scripts/index_youtube.mjs    # transcription + embeddings → Pinecone
 ```
 
-From the first run, the `curate-videos.yml` workflow runs the full pipeline automatically every day at 18:00 BRT.
+The `curate-videos.yml` workflow runs the full pipeline via manual trigger in GitHub Actions.
 
 ### 5. Populate party membership and deputies
 
@@ -240,10 +242,10 @@ User
 └───────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────┐
-│  GitHub Actions — curate-videos.yml       │  every day at 18:00 BRT
+│  GitHub Actions — curate-videos.yml       │  manual trigger
 │  1. curate_videos.mjs                     │
 │     Fetch pending videos (Neon)           │
-│     Transcript sample → GPT evaluates     │
+│     Full transcript → GPT evaluates       │
 │     Approve or reject with reason         │
 │  2. index_youtube.mjs                     │
 │     Full transcript via YouTube API       │

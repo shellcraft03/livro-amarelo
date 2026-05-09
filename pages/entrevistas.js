@@ -146,7 +146,7 @@ export default function Entrevistas() {
               <p style={submitStatus.ok ? s.submitOk : s.submitErr}>{submitStatus.msg}</p>
             )}
             <p style={s.submitInfo}>
-              Links sugeridos passam por curadoria automática de um agente de IA todos os dias às 18h. Após validação, a entrevista é incluída na base.
+              Links sugeridos passam por curadoria automática de um agente de IA periodicamente. Após validação, a entrevista é incluída na base.
             </p>
           </div>
 
