@@ -49,6 +49,8 @@ export default async function handler(req, res) {
     return res.status(415).json({ error: 'Unsupported media type' });
   }
 
+  const t0 = Date.now();
+
   try {
     const { question: rawQuestion, turnstileToken } = req.body || {};
     if (!rawQuestion) return res.status(400).json({ error: 'Missing question' });
@@ -58,13 +60,18 @@ export default async function handler(req, res) {
 
     const ip = getIp(req);
 
-    const okRes = await verifyTurnstile(turnstileToken, { ip, action: TURNSTILE_ACTION });
+    const [okRes, rl, daily] = await Promise.all([
+      verifyTurnstile(turnstileToken, { ip, action: TURNSTILE_ACTION }),
+      checkMinuteLimit(ip),
+      checkDailyLimit(ip),
+    ]);
+    console.log(`[timing][entrevistas] auth=${Date.now() - t0}ms`);
+
     if (!okRes.ok) {
       console.warn(`[turnstile] failed ip=${ip} reason=${okRes.reason || 'unknown'}`);
       return res.status(403).json({ error: 'Turnstile verification failed' });
     }
 
-    const rl = await checkMinuteLimit(ip);
     res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
     res.setHeader('X-RateLimit-Reset', String(rl.resetSeconds));
     if (!rl.ok) {
@@ -72,7 +79,6 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: 'Too many requests' });
     }
 
-    const daily = await checkDailyLimit(ip);
     if (!daily.ok) {
       await logBlock(ip, 'daily');
       return res.status(429).json({ error: 'Daily limit reached' });
@@ -80,12 +86,14 @@ export default async function handler(req, res) {
 
     const emb = await client.embeddings.create({ model: 'text-embedding-3-large', input: question });
     const embedding = emb?.data?.[0]?.embedding;
+    console.log(`[timing][entrevistas] embedding=${Date.now() - t0}ms`);
 
     let sources = [];
     let contextText = '';
 
     if (embedding) {
-      const top = await queryEmbeddingInNamespace(embedding, 'entrevistas', 14);
+      const top = await queryEmbeddingInNamespace(embedding, 'entrevistas', 8);
+      console.log(`[timing][entrevistas] pinecone=${Date.now() - t0}ms`);
       contextText = top.map((t, i) => {
         const secs  = t.meta?.start_seconds ?? null;
         const tempo = secs != null ? formatTime(secs) : '';
@@ -121,17 +129,26 @@ export default async function handler(req, res) {
 
     try {
       const stream = await client.chat.completions.create({
-        model: 'gpt-4.1',
+        model: 'gpt-4.1-mini',
         messages,
         max_tokens: 800,
         stream: true,
       });
+      console.log(`[timing][entrevistas] openai_stream_open=${Date.now() - t0}ms`);
 
+      let firstToken = true;
       for await (const chunk of stream) {
         const token = chunk.choices?.[0]?.delta?.content;
-        if (token) sendEvent({ token });
+        if (token) {
+          if (firstToken) {
+            console.log(`[timing][entrevistas] first_token=${Date.now() - t0}ms`);
+            firstToken = false;
+          }
+          sendEvent({ token });
+        }
       }
 
+      console.log(`[timing][entrevistas] total=${Date.now() - t0}ms`);
       sendEvent({ done: true, sources });
       res.end();
     } catch (streamErr) {
