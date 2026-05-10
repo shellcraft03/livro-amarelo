@@ -28,7 +28,7 @@ export default function QA() {
   const inputRef = useRef(null);
   const answerRef = useRef(null);
 
-  const { getFreshToken } = useTurnstile('turnstile-container-qa', { action: 'chat' });
+  const { getFreshToken, activate } = useTurnstile('turnstile-container-qa', { action: 'chat', lazy: true });
 
   // Redireciona para / se não houver token de verificação
   if (typeof window !== 'undefined' && !sessionStorage.getItem('turnstileToken')) {
@@ -312,6 +312,7 @@ export default function QA() {
                 ref={inputRef}
                 value={q}
                 onChange={e => setQ(e.target.value)}
+                onFocus={activate}
                 onKeyDown={handleKeyDown}
                 placeholder="Ex: Quais são as propostas para a saúde?"
                 maxLength={MAX_QUESTION_LENGTH}

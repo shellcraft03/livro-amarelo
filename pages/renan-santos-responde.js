@@ -70,7 +70,7 @@ export default function RenanSantosResponde() {
   const inputRef = useRef(null);
   const answerRef = useRef(null);
 
-  const { getFreshToken } = useTurnstile('turnstile-entrevistas', { action: 'chat' });
+  const { getFreshToken, activate } = useTurnstile('turnstile-entrevistas', { action: 'chat', lazy: true });
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
@@ -192,6 +192,7 @@ export default function RenanSantosResponde() {
                 ref={inputRef}
                 value={q}
                 onChange={e => setQ(e.target.value)}
+                onFocus={activate}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); } }}
                 placeholder="Ex: O que ele disse sobre educação?"
                 maxLength={MAX_QUESTION_LENGTH}

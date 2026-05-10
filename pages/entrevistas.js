@@ -46,7 +46,7 @@ export default function Entrevistas() {
   const [submitting, setSubmitting]       = useState(false);
   const [submitStatus, setSubmitStatus]   = useState(null); // { ok: bool, msg: string }
   const router = useRouter();
-  const { getFreshToken } = useTurnstile('turnstile-videos', { action: 'chat' });
+  const { getFreshToken, activate } = useTurnstile('turnstile-videos', { action: 'chat', lazy: true });
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
@@ -134,6 +134,7 @@ export default function Entrevistas() {
                 type="url"
                 value={submitUrl}
                 onChange={e => { setSubmitUrl(e.target.value); setSubmitStatus(null); }}
+                onFocus={activate}
                 placeholder="https://www.youtube.com/watch?v=..."
                 disabled={submitting}
                 style={s.submitInput}
