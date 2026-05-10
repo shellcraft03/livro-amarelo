@@ -196,6 +196,7 @@ function getStyles(dark, isMobile = false) {
       borderRadius: '10px',
       padding: isMobile ? '0 8px 0 10px' : '0 14px 0 16px',
       height: '44px',
+      minWidth: isMobile ? '152px' : '182px',
       cursor: 'pointer',
       color: text1,
       fontSize: isMobile ? '0.875rem' : '1rem',
