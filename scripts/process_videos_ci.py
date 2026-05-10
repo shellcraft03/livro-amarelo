@@ -24,6 +24,7 @@ PINECONE_INDEX    = os.environ["PINECONE_INDEX_ENTREVISTAS"]
 WEBSHARE_USERNAME = os.environ["WEBSHARE_PROXY_USERNAME"]
 WEBSHARE_PASSWORD = os.environ["WEBSHARE_PROXY_PASSWORD"]
 SYSTEM_PROMPT     = os.environ["SYSTEM_PROMPT_CURADORIA"]
+BLOCKED_YOUTUBE_CHANNEL_HANDLES = os.environ.get("BLOCKED_YOUTUBE_CHANNEL_HANDLES", "")
 
 EMBEDDING_MODEL = 'text-embedding-3-large'
 CHUNK_SIZE      = 400
@@ -45,6 +46,25 @@ pc             = Pinecone(api_key=PINECONE_API_KEY)
 pinecone_index = pc.Index(PINECONE_INDEX)
 
 
+def normalize_handle(handle):
+    if not handle or not isinstance(handle, str):
+        return None
+    trimmed = re.sub(r'^https?://(www\.)?youtube\.com/', '', handle.strip(), flags=re.IGNORECASE)
+    with_at = trimmed if trimmed.startswith('@') else f'@{trimmed}'
+    return with_at.lower()
+
+
+def parse_blocked_handles(value):
+    return {
+        normalized
+        for normalized in (normalize_handle(part) for part in re.split(r'[\n,;]', value or ''))
+        if normalized
+    }
+
+
+BLOCKED_HANDLES = parse_blocked_handles(BLOCKED_YOUTUBE_CHANNEL_HANDLES)
+
+
 # ── Shared helpers ────────────────────────────────────────────────────────────
 
 def extract_video_id(url):
@@ -64,6 +84,37 @@ def sanitize_field(value, max_len=200):
     return re.sub(r'[\x00-\x1F\x7F]', ' ', value).strip()[:max_len]
 
 
+def extract_channel_handle_from_html(html):
+    patterns = [
+        r'"canonicalBaseUrl"\s*:\s*"\/(@[^"]+)"',
+        r'"ownerProfileUrl"\s*:\s*"https?:\/\/www\.youtube\.com\/(@[^"]+)"',
+        r'"webCommandMetadata"\s*:\s*\{[^}]*"url"\s*:\s*"\/(@[^"]+)"',
+        r'href="\/(@[^"]+)"',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, html)
+        if match:
+            return normalize_handle(match.group(1))
+    return None
+
+
+def fetch_video_channel_handle(video_id):
+    headers = {'Accept-Language': 'pt-BR,pt;q=0.9', 'User-Agent': 'Mozilla/5.0'}
+    res = requests.get(f'https://www.youtube.com/watch?v={video_id}', headers=headers, proxies=PROXIES, timeout=15)
+    res.raise_for_status()
+    return extract_channel_handle_from_html(res.text)
+
+
+def reject_video(conn, vid_id, reason):
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE videos SET curated = false, rejection_reason = %s, curated_at = NOW() WHERE id = %s",
+            (reason, vid_id),
+        )
+    conn.commit()
+    print(f"[{vid_id}] Reprovado: {reason}")
+
+
 # ── Curation ──────────────────────────────────────────────────────────────────
 
 def curate(conn, video, segments):
@@ -76,7 +127,7 @@ def curate(conn, video, segments):
     if title:      parts.append(f"Título informado: {title}")
     if individual: parts.append(f"Entrevistado informado: {individual}")
     parts.append(f"Tamanho total da transcrição: ~{round(len(full_text) / 5)} palavras")
-    parts.append(f"\nTranscrição:\n{full_text}")
+    parts.append(f"\n<TRANSCRICAO_NAO_CONFIAVEL>\n{full_text}\n</TRANSCRICAO_NAO_CONFIAVEL>")
 
     try:
         res = openai_client.chat.completions.create(
@@ -293,8 +344,16 @@ def main():
             vid_id   = video['id']
             video_id = extract_video_id(video['url'])
             if not video_id:
-                print(f'[{vid_id}] URL inválida, pulando.')
+                print(f'[{vid_id}] URL invalida, pulando.')
                 continue
+            if BLOCKED_HANDLES:
+                try:
+                    handle = fetch_video_channel_handle(video_id)
+                    if handle in BLOCKED_HANDLES:
+                        reject_video(conn, vid_id, f'Canal bloqueado ({handle})')
+                        continue
+                except Exception as e:
+                    print(f'[{vid_id}] Nao foi possivel validar o canal do YouTube, seguindo com curadoria: {e}')
             print(f'[{vid_id}] Buscando transcrição: {video["url"]}')
             try:
                 segments = fetch_segments(video_id)

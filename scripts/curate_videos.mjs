@@ -9,10 +9,65 @@ const sql    = neon(process.env.DATABASE_URL);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT_CURADORIA;
+const BLOCKED_YOUTUBE_CHANNEL_HANDLES = parseBlockedHandles(process.env.BLOCKED_YOUTUBE_CHANNEL_HANDLES);
 
 function extractVideoId(url) {
   const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
+}
+
+function normalizeHandle(handle) {
+  if (!handle || typeof handle !== 'string') return null;
+  const trimmed = handle.trim().replace(/^https?:\/\/(www\.)?youtube\.com\//i, '');
+  const withAt = trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+  return withAt.toLowerCase();
+}
+
+function parseBlockedHandles(value) {
+  if (!value || typeof value !== 'string') return new Set();
+  return new Set(
+    value
+      .split(/[\n,;]/)
+      .map(normalizeHandle)
+      .filter(Boolean),
+  );
+}
+
+function extractChannelHandleFromHtml(html) {
+  const patterns = [
+    /"canonicalBaseUrl"\s*:\s*"\/(@[^"]+)"/,
+    /"ownerProfileUrl"\s*:\s*"https?:\/\/www\.youtube\.com\/(@[^"]+)"/,
+    /"webCommandMetadata"\s*:\s*\{[^}]*"url"\s*:\s*"\/(@[^"]+)"/,
+    /href="\/(@[^"]+)"/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match) return normalizeHandle(match[1]);
+  }
+  return null;
+}
+
+async function fetchVideoChannelHandle(videoId) {
+  const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    headers: {
+      'Accept-Language': 'pt-BR,pt;q=0.9',
+      'User-Agent': 'Mozilla/5.0',
+    },
+  });
+  if (!res.ok) throw new Error(`YouTube respondeu HTTP ${res.status}`);
+  return extractChannelHandleFromHtml(await res.text());
+}
+
+async function rejectVideo(id, reason) {
+  await sql`
+    UPDATE videos
+    SET curated          = false,
+        rejection_reason = ${reason},
+        curated_at       = NOW()
+    WHERE id = ${id}
+  `;
+  console.log(`[${id}] Reprovado: ${reason}\n`);
 }
 
 async function fetchTranscript(url, videoId) {
@@ -50,6 +105,23 @@ async function curate(video) {
   console.log(`[${id}] Curando: ${url}`);
 
   const videoId = extractVideoId(url);
+  if (!videoId) {
+    console.warn(`[${id}] URL invalida, pulando.`);
+    return;
+  }
+
+  if (BLOCKED_YOUTUBE_CHANNEL_HANDLES.size > 0) {
+    try {
+      const handle = await fetchVideoChannelHandle(videoId);
+      if (handle && BLOCKED_YOUTUBE_CHANNEL_HANDLES.has(handle)) {
+        await rejectVideo(id, `Canal bloqueado (${handle})`);
+        return;
+      }
+    } catch (err) {
+      console.warn(`[${id}] Nao foi possivel validar o canal do YouTube, seguindo com curadoria: ${err.message}`);
+    }
+  }
+
   let full, totalChars;
   try {
     ({ full, totalChars } = await fetchTranscript(url, videoId));
@@ -62,7 +134,7 @@ async function curate(video) {
     title       ? `Título informado: ${title}` : null,
     individual  ? `Entrevistado informado: ${individual}` : null,
     `Tamanho total da transcrição: ~${Math.round(totalChars / 5)} palavras`,
-    `\nTranscrição:\n${full}`,
+    `\n<TRANSCRICAO_NAO_CONFIAVEL>\n${full}\n</TRANSCRICAO_NAO_CONFIAVEL>`,
   ].filter(Boolean).join('\n');
 
   let raw;
