@@ -208,9 +208,15 @@ async function resetVideo() {
     const videoId = video.url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)?.[1];
     if (videoId) {
       const ids = [];
-      for await (const id of idx.list({ prefix: `yt-${videoId}-` })) ids.push(id);
+      let paginationToken;
+      do {
+        const res = await idx.listPaginated({ prefix: `yt-${videoId}-`, ...(paginationToken ? { paginationToken } : {}) });
+        ids.push(...(res.vectors ?? []).map(v => v.id));
+        paginationToken = res.pagination?.next;
+      } while (paginationToken);
+
       if (ids.length > 0) {
-        await idx.deleteMany(ids);
+        await idx.deleteMany({ ids });
         console.log(`${ids.length} vetores removidos do Pinecone.`);
       } else {
         console.log('Nenhum vetor encontrado no Pinecone para este vídeo.');
