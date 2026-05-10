@@ -5,6 +5,9 @@ on:
     - cron: '0 11 * * 1'  # toda segunda-feira às 08:00 BRT (11:00 UTC)
   workflow_dispatch:       # permite disparo manual
 
+permissions:
+  contents: read
+
 jobs:
   update:
     runs-on: ubuntu-latest
