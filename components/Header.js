@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 
 // Adicionar novas páginas aqui — o dropdown atualiza automaticamente
 const PAGES = [
@@ -89,7 +90,7 @@ export default function Header({ currentPage, dark, toggleDark, onCurrentPageCli
                 {PAGES.map(page => {
                   const isActive = page.href === `/${currentPage}`;
                   return (
-                    <a
+                    <Link
                       key={page.href}
                       href={page.href}
                       style={isActive ? s.navDropdownItemActive : s.navDropdownItem}
@@ -99,7 +100,7 @@ export default function Header({ currentPage, dark, toggleDark, onCurrentPageCli
                       }
                     >
                       {page.label}
-                    </a>
+                    </Link>
                   );
                 })}
               </div>
