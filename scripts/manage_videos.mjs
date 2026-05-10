@@ -238,6 +238,88 @@ async function resetVideo() {
   rl.close();
 }
 
+async function resetCurationAll() {
+  const rows = await sql`SELECT id FROM videos WHERE curated IS NOT NULL`;
+
+  if (rows.length === 0) {
+    console.log('Nenhum vídeo com curadoria definida.');
+    rl.close();
+    return;
+  }
+
+  console.log(`\n${rows.length} vídeo(s) terão a curadoria resetada (vetores Pinecone não são removidos).`);
+  const confirm = await rl.question('Confirmar? [S/N]: ');
+  if (!confirm.trim().toLowerCase().startsWith('s')) {
+    console.log('Cancelado.');
+    rl.close();
+    return;
+  }
+
+  await sql`
+    UPDATE videos
+    SET curated          = NULL,
+        curated_at       = NULL,
+        rejection_reason = NULL,
+        indexed          = false,
+        indexed_at       = NULL
+  `;
+
+  console.log(`\n${rows.length} vídeo(s) resetados. Rode a curadoria para reprocessar.`);
+  rl.close();
+}
+
+async function resetCurationVideo() {
+  const rows = await sql`
+    SELECT id, url, title, curated, indexed
+    FROM videos ORDER BY created_at DESC
+  `;
+
+  if (rows.length === 0) {
+    console.log('Nenhum vídeo cadastrado.');
+    rl.close();
+    return;
+  }
+
+  const label = v =>
+    v.curated === null ? 'pendente'  :
+    v.curated          ? 'aprovado'  : 'reprovado';
+
+  console.log(`\n${rows.length} vídeo(s):\n`);
+  for (const v of rows) {
+    const extra = v.title ? ` — ${v.title}` : '';
+    console.log(`  [${v.id}] [${label(v)}${v.indexed ? '/indexado' : ''}] ${v.url}${extra}`);
+  }
+
+  const idStr = await rl.question('\nID do vídeo para resetar curadoria (Enter para cancelar): ');
+  const id = parseInt(idStr.trim(), 10);
+  if (!id) { rl.close(); return; }
+
+  const video = rows.find(v => v.id === id);
+  if (!video) { console.log('ID não encontrado.'); rl.close(); return; }
+
+  console.log(`\nVídeo: ${video.url}`);
+  console.log('Apenas a curadoria será resetada. Vetores Pinecone não são removidos.');
+  const confirm = await rl.question('Confirmar? [S/N]: ');
+  if (!confirm.trim().toLowerCase().startsWith('s')) {
+    console.log('Cancelado.');
+    rl.close();
+    return;
+  }
+
+  await sql`
+    UPDATE videos
+    SET curated          = NULL,
+        curated_at       = NULL,
+        rejection_reason = NULL,
+        indexed          = false,
+        indexed_at       = NULL
+    WHERE id = ${id}
+  `;
+
+  console.log(`\nVídeo ${id} resetado. Rode a curadoria para reprocessar.`);
+  rl.close();
+}
+
 if (mode === '--list-pending') {
   await listPending();
 } else if (mode === '--list-all') {
@@ -248,8 +330,12 @@ if (mode === '--list-pending') {
   await rejectCurated();
 } else if (mode === '--reset-video') {
   await resetVideo();
+} else if (mode === '--reset-curation-all') {
+  await resetCurationAll();
+} else if (mode === '--reset-curation-video') {
+  await resetCurationVideo();
 } else {
-  console.log('Uso: node scripts/manage_videos.mjs [--list-pending | --list-all | --manual-curate | --reject-curated | --reset-video]');
+  console.log('Uso: node scripts/manage_videos.mjs [--list-pending | --list-all | --manual-curate | --reject-curated | --reset-video | --reset-curation-all | --reset-curation-video]');
 }
 
 rl.close();
