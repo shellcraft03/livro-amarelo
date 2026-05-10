@@ -54,10 +54,7 @@ def extract_video_id(url):
 
 def fetch_segments(video_id):
     """Single transcript fetch returning timestamped segments used by both curation and indexing."""
-    try:
-        snippets = ytt_api.fetch(video_id, languages=['pt'])
-    except Exception:
-        snippets = ytt_api.fetch(video_id)
+    snippets = ytt_api.fetch(video_id, languages=['pt-BR', 'pt', 'pt-PT', 'en'])
     return [{'text': s.text, 'offset_ms': int(s.start * 1000)} for s in snippets]
 
 
