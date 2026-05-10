@@ -36,7 +36,7 @@ Esta aplicação web permite explorar o conteúdo do Livro Amarelo e as entrevis
 - **Renan Responde** — Q&A com base em entrevistas do YouTube: transcrição automática, filtro de speaker por IA, chunking por fronteira de frase, citações inline `[1][2]` com link direto para o trecho no vídeo
 - **Curadoria automática de entrevistas** — agente de IA avalia periodicamente links submetidos por usuários e aprova/reprova com base em critérios (entrevistado principal, entrevista completa, canal independente, conteúdo político substantivo)
 - **Submissão de vídeos por usuários** — formulário na página `/entrevistas` para sugerir links do YouTube; protegido por Turnstile + rate limit
-- **Proteção por CAPTCHA** — Cloudflare Turnstile com token renovado por requisição
+- **Proteção por CAPTCHA** — Cloudflare Turnstile com inicialização lazy (ativa apenas no foco do input) e token renovado por requisição
 - **Rate limiting compartilhado** — 10 req/min e 50 req/dia por IP via Sliding Window (`@upstash/ratelimit`); contadores compartilhados entre todos os endpoints (chat do livro, chat de entrevistas e submissão de vídeos) · fallback em memória (dev local)
 - **Respostas concretas** — o modelo cita apenas o que está explicitamente nas fontes indexadas
 - **Deputados federais** — página `/deputados` com composição da Câmara por partido e estado, via API da Câmara dos Deputados
@@ -54,7 +54,7 @@ Esta aplicação web permite explorar o conteúdo do Livro Amarelo e as entrevis
 | Embeddings | OpenAI text-embedding-3-small (livro) · text-embedding-3-large (entrevistas) |
 | Vector store | Pinecone — namespace `default` (livro) e `entrevistas` (YouTube) |
 | Banco relacional | Neon Postgres (serverless) |
-| Transcrição YouTube | youtube-transcript |
+| Transcrição YouTube | youtube-transcript-api (Python, CI) · youtube-transcript (Node, local) |
 | CAPTCHA | Cloudflare Turnstile |
 | Rate limit | @upstash/ratelimit · Sliding Window · Upstash Redis (serverless) · fallback em memória (dev local) |
 | Analytics | Google Analytics 4 |
@@ -70,7 +70,7 @@ livro-amarelo/
 ├── .github/
 │   └── workflows/
 │       ├── update-filiados.yml      # Cron semanal: atualiza filiados (TSE) e deputados (Câmara API)
-│       └── curate-videos.yml        # Disparo manual: curadoria + indexação de entrevistas YouTube
+│       └── curate-videos.yml        # Todo dia 18h BRT + disparo manual: curadoria + indexação de entrevistas YouTube
 ├── pages/
 │   ├── index.js                     # Página de verificação (Turnstile)
 │   ├── inicio.js                    # Interface Q&A — Livro Amarelo
@@ -96,13 +96,14 @@ livro-amarelo/
 │   └── rateLimiter.js               # Rate limiting por IP (compartilhado entre endpoints)
 ├── curar-indexar.bat                # Menu interativo local para gestão de vídeos (curadoria + indexação)
 ├── scripts/
+│   ├── process_videos_ci.py         # CI: curadoria + indexação em passagem única (Python, sem download duplo)
 │   ├── migrate_videos.mjs           # Cria/atualiza tabela videos no Neon
-│   ├── curate_videos.mjs            # Curadoria de vídeos pendentes por GPT-4.1-mini
-│   ├── index_youtube.mjs            # Transcrição, filtro speaker, chunking, embeddings → Pinecone
-│   ├── manage_videos.mjs            # Gestão manual: listar, aprovar e reprovar vídeos
+│   ├── curate_videos.mjs            # Curadoria de vídeos pendentes por GPT-4.1-mini (uso local)
+│   ├── index_youtube.mjs            # Transcrição, filtro speaker, chunking, embeddings → Pinecone (uso local)
+│   ├── manage_videos.mjs            # Gestão manual: listar, aprovar, reprovar e resetar vídeos
 │   ├── reset_entrevistas_index.mjs  # Apaga vetores do Pinecone e desindexar vídeos no Neon
 │   ├── lib/
-│   │   └── transcript_cache.mjs     # Cache de transcrições em disco (evita download duplo)
+│   │   └── transcript_cache.mjs     # Cache de transcrições em disco (uso local)
 │   ├── aggregate_deputados.mjs      # Busca deputados na API da Câmara e insere no Neon
 │   ├── aggregate_filiados.mjs       # Processa CSV do TSE (streaming) e insere no Neon
 │   ├── index_pdf.mjs                # Indexar PDFs da pasta data/books/
@@ -150,6 +151,13 @@ UPSTASH_REDIS_REST_TOKEN=...
 
 # Neon Postgres
 DATABASE_URL=postgresql://...
+
+# Webshare (proxy para YouTube Transcript API — necessário para o script Python de CI)
+WEBSHARE_PROXY_USERNAME=...
+WEBSHARE_PROXY_PASSWORD=...
+
+# System prompt de curadoria (usado pelo script Python de CI)
+SYSTEM_PROMPT_CURADORIA=...
 ```
 
 > **Pinecone:** o projeto usa dois índices separados. `PINECONE_INDEX`: dimensão **1536**, compatível com `text-embedding-3-small`, namespace `default` (Livro Amarelo). `PINECONE_INDEX_ENTREVISTAS`: dimensão **3072**, compatível com `text-embedding-3-large`, namespace `entrevistas` (YouTube). Se `PINECONE_INDEX_ENTREVISTAS` não estiver definido, o código usa `PINECONE_INDEX` como fallback.
@@ -176,14 +184,14 @@ node scripts/migrate_to_pinecone.mjs
 node scripts/migrate_videos.mjs
 
 # Inserir um vídeo manualmente (ou via formulário na página /entrevistas)
-# e executar o pipeline completo:
+# e executar o pipeline completo localmente:
 node scripts/curate_videos.mjs    # curadoria por IA
 node scripts/index_youtube.mjs    # transcrição + embeddings → Pinecone
 ```
 
-Para gerenciar vídeos localmente, execute `curar-indexar.bat` — um menu interativo com opções para listar pendentes, curar (automático ou manual), indexar e reprovar vídeos já aprovados.
+Para gerenciar vídeos localmente no Windows, execute `curar-indexar.bat` — um menu interativo (opções 1–7) com curadoria automática, curadoria manual, indexação, reprovação e reset de curadoria/índice. A opção 7 abre um sub-menu com 4 variações de reset.
 
-O workflow `curate-videos.yml` executa o pipeline completo via disparo manual no GitHub Actions.
+Em CI, o workflow `curate-videos.yml` usa `scripts/process_videos_ci.py` — um script Python que faz curadoria e indexação em passagem única (sem download duplo de transcrição). É executado automaticamente todo dia às 18h BRT e também pode ser disparado manualmente no GitHub Actions.
 
 ### 5. Popular o banco de filiados e deputados
 
@@ -248,14 +256,14 @@ Usuário
 └───────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────┐
-│  GitHub Actions — curate-videos.yml       │  disparo manual
-│  1. curate_videos.mjs                     │
-│     Busca vídeos pendentes (Neon)         │
-│     Transcrição completa → GPT avalia     │
-│     Aprova ou reprova com motivo          │
-│  2. index_youtube.mjs                     │
-│     Transcrição completa via YouTube API  │
-│     Filtro de speaker por IA (GPT)        │
+│  GitHub Actions — curate-videos.yml       │  todo dia 18h BRT + disparo manual
+│  process_videos_ci.py                     │
+│  Fase 1: vídeos pendentes de curadoria    │
+│     Transcrição (pt-BR → pt → en)         │
+│     GPT avalia → aprova ou reprova        │
+│     Se aprovado: indexa na mesma passagem │
+│  Fase 2: aprovados ainda não indexados    │
+│     Transcrição → filtro speaker (GPT)    │
 │     Chunking por fronteira de frase       │
 │     Embeddings → Pinecone (entrevistas)   │
 │     Salva título, canal e data no Neon    │
@@ -287,6 +295,8 @@ Usuário
 | `node scripts/manage_videos.mjs --list-all` | Listar todos os vídeos com status |
 | `node scripts/manage_videos.mjs --manual-curate` | Curadoria manual de um vídeo específico |
 | `node scripts/manage_videos.mjs --reject-curated` | Reprovar manualmente um vídeo já aprovado |
+| `node scripts/manage_videos.mjs --reset-curation-all` | Resetar curadoria de todos os vídeos (mantém vetores Pinecone) |
+| `node scripts/manage_videos.mjs --reset-curation-video` | Resetar curadoria de um vídeo específico (mantém vetores Pinecone) |
 | `node scripts/reset_entrevistas_index.mjs` | Apagar vetores do Pinecone e desindexar todos os vídeos |
 | `curar-indexar.bat` | Menu interativo local com todas as opções acima (Windows) |
 | `node scripts/migrate_to_pinecone.mjs` | Enviar vetores do store.json para o Pinecone |
