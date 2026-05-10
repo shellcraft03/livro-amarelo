@@ -29,6 +29,10 @@ body {
   color: #1f2937;
 }
 
+button, a {
+  touch-action: manipulation;
+}
+
 button {
   cursor: pointer;
   font-family: inherit;
