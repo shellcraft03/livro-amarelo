@@ -187,7 +187,7 @@ export default function RenanSantosResponde() {
 
           <div style={s.inputCard}>
             <label style={s.inputLabel}>O que Renan Santos respondeu sobre…</label>
-            <div style={s.inputRow}>
+            <div className="input-row">
               <input
                 ref={inputRef}
                 value={q}
@@ -343,7 +343,6 @@ function getStyles(dark) {
       letterSpacing: '0.06em',
       marginBottom: '12px',
     },
-    inputRow: { display: 'flex', gap: '10px' },
     input: {
       flex: 1,
       padding: '12px 16px',

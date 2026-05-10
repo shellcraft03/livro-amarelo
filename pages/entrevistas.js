@@ -129,7 +129,7 @@ export default function Entrevistas() {
           {/* Sugestão de entrevista */}
           <div style={s.submitCard}>
             <p style={s.submitLabel}>Sugerir entrevista</p>
-            <form onSubmit={handleSubmit} style={s.submitRow}>
+            <form onSubmit={handleSubmit} className="input-row">
               <input
                 type="url"
                 value={submitUrl}
@@ -285,10 +285,6 @@ function getStyles(dark) {
       textTransform: 'uppercase',
       letterSpacing: '0.06em',
       marginBottom: '12px',
-    },
-    submitRow: {
-      display: 'flex',
-      gap: '10px',
     },
     submitInput: {
       flex: 1,

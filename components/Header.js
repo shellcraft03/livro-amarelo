@@ -45,7 +45,15 @@ function ChevronIcon({ open }) {
 
 export default function Header({ currentPage, dark, toggleDark, onCurrentPageClick }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const menuRef = useRef(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 480);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -56,16 +64,16 @@ export default function Header({ currentPage, dark, toggleDark, onCurrentPageCli
   }, []);
 
   const currentLabel = PAGES.find(p => p.href === `/${currentPage}`)?.label ?? currentPage;
-  const s = getStyles(dark);
+  const s = getStyles(dark, isMobile);
 
   return (
     <header style={s.header}>
       <div style={s.headerInner}>
         <a href="/" style={s.headerLogo}>
           <img src="/fasciculo3.png" alt="" style={s.headerThumb} />
-          <div>
+          <div style={s.headerTextWrap}>
             <div style={s.headerTitle}>Inevitável GPT</div>
-            <div style={s.headerSub}>O Futuro é Glorioso</div>
+            {!isMobile && <div style={s.headerSub}>O Futuro é Glorioso</div>}
           </div>
         </a>
         <nav style={s.nav}>
@@ -103,7 +111,7 @@ export default function Header({ currentPage, dark, toggleDark, onCurrentPageCli
   );
 }
 
-function getStyles(dark) {
+function getStyles(dark, isMobile = false) {
   const headerBg  = dark ? '#1A1A1A' : '#FFFFFF';
   const text1     = dark ? '#EEEEEE' : '#000000';
   const textMuted = dark ? '#888888' : '#666666';
@@ -119,7 +127,7 @@ function getStyles(dark) {
     headerInner: {
       maxWidth: '800px',
       margin: '0 auto',
-      padding: '12px 24px',
+      padding: isMobile ? '12px 14px' : '12px 24px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -127,8 +135,14 @@ function getStyles(dark) {
     headerLogo: {
       display: 'flex',
       alignItems: 'center',
-      gap: '12px',
+      gap: isMobile ? '8px' : '12px',
       textDecoration: 'none',
+      minWidth: 0,
+      overflow: 'hidden',
+    },
+    headerTextWrap: {
+      minWidth: 0,
+      overflow: 'hidden',
     },
     headerThumb: {
       width: '36px',
@@ -136,12 +150,16 @@ function getStyles(dark) {
       objectFit: 'cover',
       borderRadius: '4px',
       background: '#FCBF22',
+      flexShrink: 0,
     },
     headerTitle: {
       color: text1,
-      fontSize: '1rem',
+      fontSize: isMobile ? '0.875rem' : '1rem',
       fontWeight: 900,
       letterSpacing: '-0.03em',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
     },
     headerSub: {
       color: textMuted,
@@ -153,8 +171,9 @@ function getStyles(dark) {
     },
     nav: {
       display: 'flex',
-      gap: '20px',
+      gap: isMobile ? '8px' : '20px',
       alignItems: 'center',
+      flexShrink: 0,
     },
     darkToggle: {
       background: dark ? '#2A2A2A' : '#F0F0F0',
@@ -174,14 +193,15 @@ function getStyles(dark) {
       background: 'none',
       border: `1px solid ${dark ? '#444444' : '#DDDDDD'}`,
       borderRadius: '10px',
-      padding: '10px 14px 10px 16px',
+      padding: isMobile ? '8px 6px 8px 8px' : '10px 14px 10px 16px',
       cursor: 'pointer',
       color: text1,
-      fontSize: '1rem',
+      fontSize: isMobile ? '0.875rem' : '1rem',
       fontWeight: 600,
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
+      whiteSpace: 'nowrap',
     },
     navDropdown: {
       position: 'absolute',
