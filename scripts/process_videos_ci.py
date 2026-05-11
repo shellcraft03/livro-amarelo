@@ -67,6 +67,19 @@ def parse_blocked_channel_names(value):
     }
 
 
+def find_blocked_channel_term(channel_name):
+    normalized_channel = normalize_channel_name(channel_name)
+    if not normalized_channel:
+        return None
+    return next(
+        (
+            term for term in BLOCKED_CHANNEL_NAMES
+            if re.search(rf'(?<!\w){re.escape(term)}(?!\w)', normalized_channel)
+        ),
+        None,
+    )
+
+
 BLOCKED_CHANNEL_NAMES = parse_blocked_channel_names(BLOCKED_YOUTUBE_CHANNEL_NAMES)
 print(f'Bloqueio de canais do YouTube: {len(BLOCKED_CHANNEL_NAMES)} termo(s) configurado(s).')
 
@@ -362,11 +375,7 @@ def main():
             if not channel:
                 print(f'[{vid_id}] Nome do canal indisponivel, sera tentado novamente.')
                 continue
-            normalized_channel = normalize_channel_name(channel)
-            blocked_term = next(
-                (term for term in BLOCKED_CHANNEL_NAMES if term in normalized_channel),
-                None,
-            )
+            blocked_term = find_blocked_channel_term(channel)
             if blocked_term:
                 reject_video(conn, vid_id, f'Canal bloqueado ({channel})')
                 continue
