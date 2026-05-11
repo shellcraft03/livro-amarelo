@@ -3,6 +3,7 @@ import re
 import json
 import sys
 import math
+import unicodedata
 import requests
 try:
     from dotenv import load_dotenv
@@ -50,7 +51,12 @@ pinecone_index = pc.Index(PINECONE_INDEX)
 def normalize_channel_name(name):
     if not name or not isinstance(name, str):
         return None
-    return re.sub(r'\s+', ' ', name).strip().lower()
+    normalized = unicodedata.normalize('NFKD', name)
+    without_accents = ''.join(
+        char for char in normalized
+        if not unicodedata.combining(char)
+    )
+    return re.sub(r'\s+', ' ', without_accents).strip().lower()
 
 
 def parse_blocked_channel_names(value):
