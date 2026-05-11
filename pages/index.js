@@ -90,7 +90,7 @@ export default function Entry() {
   return (
     <>
       <Head>
-        <title>o Livro Amarelo — O Futuro é Glorioso</title>
+        <title>InevitávelGPT — O Futuro é Glorioso</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="description" content="Explore as propostas do Livro Amarelo e as entrevistas de Renan Santos — um projeto de país para transformar o Brasil na quinta maior economia do mundo." />
         <meta property="og:type" content="website" />
