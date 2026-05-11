@@ -33,8 +33,15 @@ CHUNK_SIZE      = 400
 UPSERT_BATCH    = 100
 SPEAKER_BLOCK   = 50
 CHANNEL_CHECK_DELAY_SECONDS = (3, 8)
+CHANNEL_HANDLE_ATTEMPTS = 4
+CHANNEL_HANDLE_RETRY_DELAY_SECONDS = (2, 5)
+TRANSCRIPT_ATTEMPTS = 4
+TRANSCRIPT_RETRY_DELAY_SECONDS = (2, 5)
 
-PROXY_URL = f'http://{WEBSHARE_USERNAME}:{WEBSHARE_PASSWORD}@p.webshare.io:80'
+WEBSHARE_ROTATING_USERNAME = (
+    WEBSHARE_USERNAME if WEBSHARE_USERNAME.endswith('-rotate') else f'{WEBSHARE_USERNAME}-rotate'
+)
+PROXY_URL = f'http://{WEBSHARE_ROTATING_USERNAME}:{WEBSHARE_PASSWORD}@p.webshare.io:80'
 PROXIES   = {'http': PROXY_URL, 'https': PROXY_URL}
 
 ytt_api = YouTubeTranscriptApi(
@@ -81,8 +88,22 @@ def extract_video_id(url):
 
 def fetch_segments(video_id):
     """Single transcript fetch returning timestamped segments used by both curation and indexing."""
-    snippets = ytt_api.fetch(video_id, languages=['pt-BR', 'pt', 'pt-PT', 'en'])
-    return [{'text': s.text, 'offset_ms': int(s.start * 1000)} for s in snippets]
+    last_error = None
+
+    for attempt in range(1, TRANSCRIPT_ATTEMPTS + 1):
+        try:
+            print(f'Buscando transcrição: tentativa {attempt}/{TRANSCRIPT_ATTEMPTS}...')
+            snippets = ytt_api.fetch(video_id, languages=['pt-BR', 'pt', 'pt-PT', 'en'])
+            return [{'text': s.text, 'offset_ms': int(s.start * 1000)} for s in snippets]
+        except Exception as e:
+            last_error = e
+            if attempt == TRANSCRIPT_ATTEMPTS:
+                break
+            delay = random.uniform(*TRANSCRIPT_RETRY_DELAY_SECONDS)
+            print(f'Tentativa de buscar transcrição falhou, nova tentativa em {delay:.1f}s: {e}')
+            time.sleep(delay)
+
+    raise last_error
 
 
 def sanitize_field(value, max_len=200):
@@ -107,10 +128,38 @@ def extract_channel_handle_from_html(html):
 
 
 def fetch_video_channel_handle(video_id):
-    headers = {'Accept-Language': 'pt-BR,pt;q=0.9', 'User-Agent': 'Mozilla/5.0'}
-    res = requests.get(f'https://www.youtube.com/watch?v={video_id}', headers=headers, proxies=PROXIES, timeout=15)
-    res.raise_for_status()
-    return extract_channel_handle_from_html(res.text)
+    headers = {
+        'Accept-Language': 'pt-BR,pt;q=0.9',
+        'Connection': 'close',
+        'User-Agent': 'Mozilla/5.0',
+    }
+    last_error = None
+
+    for attempt in range(1, CHANNEL_HANDLE_ATTEMPTS + 1):
+        try:
+            print(f'Validando canal do YouTube: tentativa {attempt}/{CHANNEL_HANDLE_ATTEMPTS}...')
+            with requests.Session() as session:
+                session.trust_env = False
+                res = session.get(
+                    f'https://www.youtube.com/watch?v={video_id}',
+                    headers=headers,
+                    proxies=PROXIES,
+                    timeout=15,
+                )
+                res.raise_for_status()
+                handle = extract_channel_handle_from_html(res.text)
+                if not handle:
+                    raise ValueError('Handle do canal nao encontrado no HTML do YouTube')
+                return handle
+        except Exception as e:
+            last_error = e
+            if attempt == CHANNEL_HANDLE_ATTEMPTS:
+                break
+            delay = random.uniform(*CHANNEL_HANDLE_RETRY_DELAY_SECONDS)
+            print(f'Tentativa de validar canal falhou, nova tentativa em {delay:.1f}s: {e}')
+            time.sleep(delay)
+
+    raise last_error
 
 
 def reject_video(conn, vid_id, reason):
