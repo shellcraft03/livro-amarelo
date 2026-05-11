@@ -40,7 +40,7 @@ ytt_api = YouTubeTranscriptApi(
     proxy_config=WebshareProxyConfig(
         proxy_username=WEBSHARE_USERNAME,
         proxy_password=WEBSHARE_PASSWORD,
-        filter_ip_locations=["us"],
+        filter_ip_locations=["br", "us"],
     )
 )
 
