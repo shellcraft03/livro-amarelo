@@ -31,4 +31,5 @@ jobs:
           WEBSHARE_PROXY_USERNAME:    ${{ secrets.WEBSHARE_PROXY_USERNAME }}
           WEBSHARE_PROXY_PASSWORD:    ${{ secrets.WEBSHARE_PROXY_PASSWORD }}
           SYSTEM_PROMPT_CURADORIA:    ${{ secrets.SYSTEM_PROMPT_CURADORIA }}
+          BLOCKED_YOUTUBE_CHANNEL_HANDLES: ${{ secrets.BLOCKED_YOUTUBE_CHANNEL_HANDLES }}
         run: python scripts/process_videos_ci.py

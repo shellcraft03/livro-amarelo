@@ -24,7 +24,7 @@ PINECONE_INDEX    = os.environ["PINECONE_INDEX_ENTREVISTAS"]
 WEBSHARE_USERNAME = os.environ["WEBSHARE_PROXY_USERNAME"]
 WEBSHARE_PASSWORD = os.environ["WEBSHARE_PROXY_PASSWORD"]
 SYSTEM_PROMPT     = os.environ["SYSTEM_PROMPT_CURADORIA"]
-BLOCKED_YOUTUBE_CHANNEL_HANDLES = os.environ.get("BLOCKED_YOUTUBE_CHANNEL_HANDLES", "")
+BLOCKED_YOUTUBE_CHANNEL_HANDLES = os.environ["BLOCKED_YOUTUBE_CHANNEL_HANDLES"]
 
 EMBEDDING_MODEL = 'text-embedding-3-large'
 CHUNK_SIZE      = 400
@@ -50,6 +50,9 @@ def normalize_handle(handle):
     if not handle or not isinstance(handle, str):
         return None
     trimmed = re.sub(r'^https?://(www\.)?youtube\.com/', '', handle.strip(), flags=re.IGNORECASE)
+    trimmed = trimmed.split('?', 1)[0].split('#', 1)[0].strip('/')
+    if trimmed.startswith('@'):
+        trimmed = trimmed.split('/', 1)[0]
     with_at = trimmed if trimmed.startswith('@') else f'@{trimmed}'
     return with_at.lower()
 
@@ -63,6 +66,7 @@ def parse_blocked_handles(value):
 
 
 BLOCKED_HANDLES = parse_blocked_handles(BLOCKED_YOUTUBE_CHANNEL_HANDLES)
+print(f'Bloqueio de canais do YouTube: {len(BLOCKED_HANDLES)} handle(s) configurado(s).')
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
@@ -85,6 +89,7 @@ def sanitize_field(value, max_len=200):
 
 
 def extract_channel_handle_from_html(html):
+    html = html.replace(r'\/', '/').replace(r'\u002F', '/')
     patterns = [
         r'"canonicalBaseUrl"\s*:\s*"\/(@[^"]+)"',
         r'"ownerProfileUrl"\s*:\s*"https?:\/\/www\.youtube\.com\/(@[^"]+)"',

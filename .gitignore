@@ -1,5 +1,7 @@
 /node_modules
 /.next
+__pycache__/
+*.py[cod]
 .env.local
 /.env
 data/books/*.pdf
