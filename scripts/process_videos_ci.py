@@ -29,7 +29,7 @@ SYSTEM_PROMPT     = os.environ["SYSTEM_PROMPT_CURADORIA"]
 BLOCKED_YOUTUBE_CHANNEL_NAMES = os.environ["BLOCKED_YOUTUBE_CHANNEL_NAMES"]
 
 EMBEDDING_MODEL = 'text-embedding-3-large'
-CHUNK_SIZE      = 400
+CHUNK_SIZE      = 650
 UPSERT_BATCH    = 100
 SPEAKER_BLOCK   = 50
 
@@ -211,7 +211,11 @@ def chunk_segments(segments, max_chars=CHUNK_SIZE):
         raw  = ' '.join(s['text'].strip() for s in segs if s['text'].strip()).strip()
         text = raw.replace('<', '&lt;').replace('>', '&gt;')
         if len(text) >= 80:
-            chunks.append({'text': text, 'startOffsetMs': segs[0]['offset_ms']})
+            chunks.append({
+                'text': text,
+                'startOffsetMs': segs[0]['offset_ms'],
+                'endOffsetMs': segs[-1]['offset_ms'],
+            })
 
     def split_buffer():
         nonlocal buffer
@@ -232,6 +236,14 @@ def chunk_segments(segments, max_chars=CHUNK_SIZE):
             split_buffer()
 
     flush(buffer)
+    for i, chunk in enumerate(chunks):
+        context_parts = []
+        if i > 0:
+            context_parts.append(chunks[i - 1]['text'])
+        context_parts.append(chunk['text'])
+        if i + 1 < len(chunks):
+            context_parts.append(chunks[i + 1]['text'])
+        chunk['contextText'] = ' '.join(context_parts)
     return chunks
 
 
@@ -308,11 +320,13 @@ def index_video(conn, video, segments, meta=None):
         records = []
         for j, (chunk, emb) in enumerate(zip(batch, embeddings)):
             start_seconds = math.floor(chunk['startOffsetMs'] / 1000)
+            end_seconds = math.floor(chunk.get('endOffsetMs', chunk['startOffsetMs']) / 1000)
             records.append({
                 'id':     f'yt-{video_id}-c{i + j}',
                 'values': emb,
                 'metadata': {
                     'text':          chunk['text'],
+                    'context_text':  chunk['contextText'],
                     'source':        'youtube',
                     'video_id':      video_id,
                     'url':           url,
@@ -323,6 +337,7 @@ def index_video(conn, video, segments, meta=None):
                     'published_at':  published_at or '',
                     'chunk':         i + j,
                     'start_seconds': start_seconds,
+                    'end_seconds':   end_seconds,
                 },
             })
         pinecone_index.upsert(vectors=records, namespace='entrevistas')

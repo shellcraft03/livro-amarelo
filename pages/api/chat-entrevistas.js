@@ -8,6 +8,17 @@ const MAX_QUESTION_LENGTH = 1000;
 const TURNSTILE_ACTION = 'chat';
 const EMBEDDING_MODEL = 'text-embedding-3-large';
 const QUERY_REWRITE_MODEL = process.env.QUERY_REWRITE_MODEL || 'gpt-4.1-mini';
+const RERANK_MODEL = process.env.INTERVIEW_RERANK_MODEL || 'gpt-4.1-mini';
+
+function intFromEnv(name, fallback, min, max) {
+  const value = Number.parseInt(process.env[name] || '', 10);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+const INITIAL_TOP_K = intFromEnv('INTERVIEW_INITIAL_TOP_K', 40, 10, 100);
+const RERANK_CANDIDATES = intFromEnv('INTERVIEW_RERANK_CANDIDATES', 50, 12, 80);
+const FINAL_CHUNKS = intFromEnv('INTERVIEW_FINAL_CHUNKS', 12, 4, 20);
 
 const TOPIC_EXPANSIONS = [
   {
@@ -171,21 +182,101 @@ function topicTerms(question) {
 
 function rankMatches(matches, question) {
   const terms = topicTerms(question);
-  if (!terms.length) return matches;
 
   return matches
     .map(match => {
       const haystack = normalizeText(`${match.meta?.title || ''} ${match.text || ''}`);
       const hits = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0);
-      const coverage = hits / terms.length;
+      const coverage = terms.length > 0 ? hits / terms.length : 0;
       const titleHits = terms.reduce((sum, term) => sum + (normalizeText(match.meta?.title).includes(term) ? 1 : 0), 0);
+      const lexicalBoost = coverage * 0.12 + titleHits * 0.02;
+      const lexicalPenalty = terms.length > 0 && hits === 0 ? 0.04 : 0;
       return {
         ...match,
-        rerankScore: (match.score || 0) + coverage * 0.12 + titleHits * 0.02,
+        rerankScore: (match.score || 0) + lexicalBoost - lexicalPenalty,
         lexicalHits: hits,
       };
     })
     .sort((a, b) => b.rerankScore - a.rerankScore);
+}
+
+function parseRankedIds(raw) {
+  const text = String(raw || '').trim();
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed.map(String);
+    if (Array.isArray(parsed?.ids)) return parsed.ids.map(String);
+  } catch {}
+
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) return [];
+  try {
+    const parsed = JSON.parse(match[0]);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function rerankInterviewChunks(question, matches) {
+  const candidates = matches.slice(0, RERANK_CANDIDATES);
+  if (candidates.length <= FINAL_CHUNKS) return candidates;
+
+  try {
+    const items = candidates.map((match, index) => ({
+      id: match.id || String(index),
+      title: match.meta?.title || '',
+      time: match.meta?.start_seconds ?? null,
+      text: String(match.text || '').slice(0, 900),
+    }));
+
+    const completion = await client.chat.completions.create({
+      model: RERANK_MODEL,
+      temperature: 0,
+      max_tokens: 600,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'Voce reranqueia trechos de entrevistas para responder uma pergunta.',
+            'Use apenas a relevancia dos trechos para a pergunta.',
+            'Prefira trechos que respondem diretamente, com detalhes concretos.',
+            'Retorne somente um array JSON com os ids dos trechos mais relevantes em ordem.',
+            `Retorne no maximo ${FINAL_CHUNKS} ids.`,
+          ].join(' '),
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({ question, candidates: items }),
+        },
+      ],
+    });
+
+    const rankedIds = parseRankedIds(completion.choices?.[0]?.message?.content);
+    if (!rankedIds.length) return candidates.slice(0, FINAL_CHUNKS);
+
+    const byId = new Map(candidates.map(match => [String(match.id), match]));
+    const selected = [];
+    const used = new Set();
+    for (const id of rankedIds) {
+      const match = byId.get(String(id));
+      if (match && !used.has(match.id)) {
+        selected.push({ ...match, llmReranked: true });
+        used.add(match.id);
+      }
+      if (selected.length >= FINAL_CHUNKS) break;
+    }
+
+    for (const match of candidates) {
+      if (selected.length >= FINAL_CHUNKS) break;
+      if (!used.has(match.id)) selected.push(match);
+    }
+
+    return selected;
+  } catch (err) {
+    console.warn('[rag][entrevistas] rerank failed:', err?.message || err);
+    return candidates.slice(0, FINAL_CHUNKS);
+  }
 }
 
 async function retrieveInterviewChunks(question) {
@@ -195,7 +286,7 @@ async function retrieveInterviewChunks(question) {
   const embeddings = emb?.data?.map(d => d.embedding).filter(Boolean) || [];
 
   const resultSets = await Promise.all(
-    embeddings.map(embedding => queryEmbeddingInNamespace(embedding, 'entrevistas', 20))
+    embeddings.map(embedding => queryEmbeddingInNamespace(embedding, 'entrevistas', INITIAL_TOP_K))
   );
 
   const byId = new Map();
@@ -204,25 +295,11 @@ async function retrieveInterviewChunks(question) {
     if (!current || (match.score || 0) > (current.score || 0)) byId.set(match.id, match);
   }
 
-  const terms = topicTerms(question);
   const ranked = rankMatches([...byId.values()], question);
-  const relevant = terms.length > 0
-    ? ranked.filter(match => match.lexicalHits > 0)
-    : ranked;
-
-  if (shouldDebugRag() && terms.length > 0 && relevant.length === 0 && ranked.length > 0) {
-    console.warn('[rag][entrevistas] no lexical match for topic terms; dropping semantic-only matches', {
-      terms,
-      bestSemanticMatches: ranked.slice(0, 5).map(match => ({
-        id: match.id,
-        score: Number(match.score?.toFixed?.(4) ?? match.score),
-        title: match.meta?.title || '',
-      })),
-    });
-  }
+  const chunks = await rerankInterviewChunks(question, ranked);
 
   return {
-    chunks: relevant.slice(0, 12),
+    chunks,
     dims: embeddings[0]?.length || 0,
     retrievalQuery: focusedQuery,
   };
@@ -286,6 +363,7 @@ export default async function handler(req, res) {
           score: Number(t.score?.toFixed?.(4) ?? t.score),
           rerankScore: Number(t.rerankScore?.toFixed?.(4) ?? t.rerankScore),
           lexicalHits: t.lexicalHits,
+          llmReranked: Boolean(t.llmReranked),
           title: t.meta?.title || '',
           channel: t.meta?.channel || '',
           start_seconds: t.meta?.start_seconds ?? null,
@@ -298,17 +376,20 @@ export default async function handler(req, res) {
         const secs  = t.meta?.start_seconds ?? null;
         const tempo = secs != null ? formatTime(secs) : '';
         const esc   = (s) => String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-        return `<fonte id="${i + 1}" titulo="${esc(t.meta?.title)}" tempo="${esc(tempo)}">\n${t.text}\n</fonte>`;
+        const text  = t.meta?.context_text || t.text;
+        return `<fonte id="${i + 1}" titulo="${esc(t.meta?.title)}" tempo="${esc(tempo)}">\n${text}\n</fonte>`;
       }).join('\n');
       sources = top.map((t, i) => ({
         id:            i + 1,
         text:          t.text || '',
+        context_text:  t.meta?.context_text || '',
         source_url:    t.meta?.source_url || '',
         title:         t.meta?.title || '',
         channel:       t.meta?.channel || '',
         individual:    t.meta?.individual || '',
         published_at:  t.meta?.published_at || '',
         start_seconds: t.meta?.start_seconds ?? null,
+        end_seconds:   t.meta?.end_seconds ?? null,
         score:         t.score,
       }));
     }
