@@ -3,6 +3,8 @@ import re
 import json
 import sys
 import math
+import random
+import time
 import requests
 try:
     from dotenv import load_dotenv
@@ -30,6 +32,7 @@ EMBEDDING_MODEL = 'text-embedding-3-large'
 CHUNK_SIZE      = 400
 UPSERT_BATCH    = 100
 SPEAKER_BLOCK   = 50
+CHANNEL_CHECK_DELAY_SECONDS = (3, 8)
 
 PROXY_URL = f'http://{WEBSHARE_USERNAME}:{WEBSHARE_PASSWORD}@p.webshare.io:80'
 PROXIES   = {'http': PROXY_URL, 'https': PROXY_URL}
@@ -118,6 +121,12 @@ def reject_video(conn, vid_id, reason):
         )
     conn.commit()
     print(f"[{vid_id}] Reprovado: {reason}")
+
+
+def wait_before_channel_check():
+    delay = random.uniform(*CHANNEL_CHECK_DELAY_SECONDS)
+    print(f'Aguardando {delay:.1f}s antes de validar canal do YouTube...')
+    time.sleep(delay)
 
 
 # ── Curation ──────────────────────────────────────────────────────────────────
@@ -353,12 +362,14 @@ def main():
                 continue
             if BLOCKED_HANDLES:
                 try:
+                    wait_before_channel_check()
                     handle = fetch_video_channel_handle(video_id)
                     if handle in BLOCKED_HANDLES:
                         reject_video(conn, vid_id, f'Canal bloqueado ({handle})')
                         continue
                 except Exception as e:
-                    print(f'[{vid_id}] Nao foi possivel validar o canal do YouTube, seguindo com curadoria: {e}')
+                    print(f'[{vid_id}] Nao foi possivel validar o canal do YouTube, sera tentado novamente: {e}')
+                    continue
             print(f'[{vid_id}] Buscando transcrição: {video["url"]}')
             try:
                 segments = fetch_segments(video_id)
