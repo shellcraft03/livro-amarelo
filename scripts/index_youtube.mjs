@@ -11,7 +11,7 @@ const pc     = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
 const index  = pc.index(process.env.PINECONE_INDEX_ENTREVISTAS || process.env.PINECONE_INDEX).namespace('entrevistas');
 
 const EMBEDDING_MODEL = 'text-embedding-3-large';
-const CHUNK_SIZE      = 400;
+const CHUNK_SIZE      = 650;
 const UPSERT_BATCH    = 100;
 
 function chunkSegments(segments, maxChars = CHUNK_SIZE) {
@@ -22,7 +22,13 @@ function chunkSegments(segments, maxChars = CHUNK_SIZE) {
     if (segs.length === 0) return;
     const raw  = segs.map(s => s.text.trim()).filter(Boolean).join(' ').trim();
     const text = raw.replace(/[<>]/g, m => m === '<' ? '&lt;' : '&gt;');
-    if (text.length >= 80) chunks.push({ text, startOffsetMs: segs[0].offset });
+    if (text.length >= 80) {
+      chunks.push({
+        text,
+        startOffsetMs: segs[0].offset,
+        endOffsetMs: segs[segs.length - 1].offset,
+      });
+    }
   }
 
   function splitBuffer() {
@@ -56,7 +62,10 @@ function chunkSegments(segments, maxChars = CHUNK_SIZE) {
   }
 
   flush(buffer);
-  return chunks;
+  return chunks.map((chunk, i) => ({
+    ...chunk,
+    contextText: [chunks[i - 1]?.text, chunk.text, chunks[i + 1]?.text].filter(Boolean).join(' '),
+  }));
 }
 
 function extractVideoId(url) {
@@ -194,11 +203,13 @@ async function indexVideo(video) {
 
     const batchRecords = batch.map((chunk, j) => {
       const startSeconds = Math.floor(chunk.startOffsetMs / 1000);
+      const endSeconds = Math.floor((chunk.endOffsetMs || chunk.startOffsetMs) / 1000);
       return {
         id:     `yt-${videoId}-c${i + j}`,
         values: embeddings[j],
         metadata: {
           text:          chunk.text,
+          context_text:  chunk.contextText,
           source:        'youtube',
           video_id:      videoId,
           url,
@@ -209,6 +220,7 @@ async function indexVideo(video) {
           published_at:  publishedAt || '',
           chunk:         i + j,
           start_seconds: startSeconds,
+          end_seconds:   endSeconds,
         },
       };
     });
