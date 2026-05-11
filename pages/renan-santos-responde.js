@@ -58,6 +58,17 @@ function parseAnswerSegments(text, sources) {
   return { parts, citations: citationList };
 }
 
+function stripAnswerReferences(text) {
+  const TIME  = '[\\d:]+(?:-[\\d:]+)?';
+  const ENTRY = `\\d+,\\s*${TIME}`;
+  const regex = new RegExp(`\\s*\\[${ENTRY}(?:;\\s*${ENTRY})*\\]`, 'g');
+  return String(text || '')
+    .replace(regex, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export default function RenanSantosResponde() {
   const [dark, toggleDark] = useDarkMode();
   const [q, setQ]               = useState('');
@@ -65,6 +76,7 @@ export default function RenanSantosResponde() {
   const [loading, setLoading]   = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [askedQuestion, setAskedQuestion] = useState('');
+  const [copied, setCopied] = useState(false);
   const [rateLimitError, setRateLimitError] = useState(null);
   const router   = useRouter();
   useSessionGate();
@@ -77,6 +89,7 @@ export default function RenanSantosResponde() {
     setAskedQuestion('');
     setLoading(false);
     setStreaming(false);
+    setCopied(false);
     setRateLimitError(null);
   }
 
@@ -89,6 +102,7 @@ export default function RenanSantosResponde() {
     setAnswer(null);
     setStreaming(false);
     setRateLimitError(null);
+    setCopied(false);
 
     const res = await fetch('/api/chat-entrevistas', {
       method: 'POST',
@@ -155,6 +169,140 @@ export default function RenanSantosResponde() {
   }
 
   const isProcessing = loading || streaming;
+
+  async function copyText() {
+    const text = `${askedQuestion}\n\n${stripAnswerReferences(answer?.text)}`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function downloadImage() {
+    const W = 1080;
+    const PAD = 72;
+    const CW = W - PAD * 2;
+    const HEADER_H = 100;
+    const FOOTER_H = 72;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = 4000;
+    const ctx = canvas.getContext('2d');
+
+    function wrapLines(text, font, maxW) {
+      ctx.font = font;
+      const lines = [];
+      for (const para of text.split('\n')) {
+        if (!para.trim()) { lines.push(null); continue; }
+        const words = para.split(' ');
+        let cur = '';
+        for (const word of words) {
+          const test = cur ? cur + ' ' + word : word;
+          if (ctx.measureText(test).width > maxW && cur) {
+            lines.push(cur);
+            cur = word;
+          } else {
+            cur = test;
+          }
+        }
+        if (cur) lines.push(cur);
+      }
+      return lines;
+    }
+
+    const FONT_Q = 'italic 500 30px Arial, sans-serif';
+    const FONT_A = '400 28px Arial, sans-serif';
+    const LH_Q = 44, LH_A = 42, LH_BLANK = 18;
+
+    const qLines = wrapLines(`"${askedQuestion}"`, FONT_Q, CW);
+    const aLines = wrapLines(stripAnswerReferences(answer?.text), FONT_A, CW);
+
+    const qH = qLines.reduce((sum, l) => sum + (l === null ? LH_BLANK : LH_Q), 0);
+    const aH = aLines.reduce((sum, l) => sum + (l === null ? LH_BLANK : LH_A), 0);
+
+    const H = HEADER_H + 56 + 30 + 14 + qH + 44 + 4 + 44 + 30 + 14 + aH + 56 + FOOTER_H;
+    canvas.height = H;
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, HEADER_H);
+    ctx.fillStyle = '#FCBF22';
+    ctx.font = '900 36px Arial, sans-serif';
+    ctx.fillText('RENAN RESPONDE', PAD, 60);
+    ctx.fillStyle = '#888888';
+    ctx.font = '400 18px Arial, sans-serif';
+    ctx.fillText('Entrevistas indexadas', PAD, 84);
+
+    let y = HEADER_H + 56;
+
+    ctx.font = '700 15px Arial, sans-serif';
+    const plW = ctx.measureText('PERGUNTA').width + 20;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(PAD, y, plW, 28);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('PERGUNTA', PAD + 10, y + 19);
+    y += 28 + 14;
+
+    ctx.font = FONT_Q;
+    ctx.fillStyle = '#333333';
+    for (const line of qLines) {
+      if (line === null) { y += LH_BLANK; continue; }
+      ctx.fillText(line, PAD, y + LH_Q - 10);
+      y += LH_Q;
+    }
+    y += 28;
+
+    ctx.fillStyle = '#FCBF22';
+    ctx.fillRect(PAD, y, CW, 4);
+    y += 4 + 36;
+
+    ctx.font = '700 15px Arial, sans-serif';
+    const rlW = ctx.measureText('RESPOSTA').width + 20;
+    ctx.fillStyle = '#FCBF22';
+    ctx.fillRect(PAD, y, rlW, 28);
+    ctx.fillStyle = '#000000';
+    ctx.fillText('RESPOSTA', PAD + 10, y + 19);
+    y += 28 + 14;
+
+    ctx.font = FONT_A;
+    ctx.fillStyle = '#111111';
+    for (const line of aLines) {
+      if (line === null) { y += LH_BLANK; continue; }
+      ctx.fillText(line, PAD, y + LH_A - 8);
+      y += LH_A;
+    }
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, H - FOOTER_H, W, FOOTER_H);
+    ctx.fillStyle = '#FCBF22';
+    ctx.font = '700 18px Arial, sans-serif';
+    ctx.fillText('Inevitável GPT', PAD, H - FOOTER_H + 44);
+    ctx.fillStyle = '#666666';
+    ctx.font = '400 16px Arial, sans-serif';
+    const right = 'Renan Responde';
+    ctx.fillText(right, W - PAD - ctx.measureText(right).width, H - FOOTER_H + 44);
+
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'renan-responde-resposta.jpg';
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/jpeg', 0.92);
+  }
+
   const s = getStyles(dark);
 
   return (
@@ -267,6 +415,14 @@ export default function RenanSantosResponde() {
                       );
                     })()
                 }
+              </div>
+              <div style={s.shareRow}>
+                <button onClick={copyText} disabled={streaming} style={streaming ? s.shareBtnDisabled : s.shareBtn}>
+                  {copied ? '✓ Copiado!' : 'Copiar texto'}
+                </button>
+                <button onClick={downloadImage} disabled={streaming} style={streaming ? s.shareBtnDisabled : s.shareBtn}>
+                  Baixar imagem
+                </button>
               </div>
             </div>
           )}
@@ -530,6 +686,34 @@ function getStyles(dark) {
       fontWeight: 600,
       color: '#FF0000',
       flexShrink: 0,
+    },
+    shareRow: {
+      display: 'flex',
+      gap: '8px',
+      flexWrap: 'wrap',
+      marginTop: '20px',
+      paddingTop: '16px',
+      borderTop: `2px solid ${divider}`,
+    },
+    shareBtn: {
+      padding: '8px 16px',
+      background: '#FCBF22',
+      border: '2px solid #000000',
+      borderRadius: '8px',
+      color: '#000000',
+      fontSize: '0.85rem',
+      cursor: 'pointer',
+      fontWeight: 700,
+    },
+    shareBtnDisabled: {
+      padding: '8px 16px',
+      background: dark ? '#2A2A2A' : '#F2F2F2',
+      border: `2px solid ${dark ? '#2A2A2A' : '#F2F2F2'}`,
+      borderRadius: '8px',
+      color: textDim,
+      fontSize: '0.85rem',
+      cursor: 'not-allowed',
+      fontWeight: 700,
     },
     entrevistasLink: {
       marginTop: '32px',

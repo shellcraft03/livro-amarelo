@@ -7,8 +7,8 @@ import { verifyTurnstile } from '../../lib/turnstile.js';
 const MAX_QUESTION_LENGTH = 1000;
 const TURNSTILE_ACTION = 'chat';
 const EMBEDDING_MODEL = 'text-embedding-3-large';
-const QUERY_REWRITE_MODEL = process.env.QUERY_REWRITE_MODEL || 'gpt-4.1-mini';
-const RERANK_MODEL = process.env.INTERVIEW_RERANK_MODEL || 'gpt-4.1-mini';
+const QUERY_REWRITE_MODEL = process.env.QUERY_REWRITE_MODEL || 'gpt-4.1-nano';
+const RERANK_MODEL = process.env.INTERVIEW_RERANK_MODEL || 'gpt-4.1-nano';
 
 function intFromEnv(name, fallback, min, max) {
   const value = Number.parseInt(process.env[name] || '', 10);
@@ -16,8 +16,8 @@ function intFromEnv(name, fallback, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-const INITIAL_TOP_K = intFromEnv('INTERVIEW_INITIAL_TOP_K', 40, 10, 100);
-const RERANK_CANDIDATES = intFromEnv('INTERVIEW_RERANK_CANDIDATES', 50, 12, 80);
+const INITIAL_TOP_K = intFromEnv('INTERVIEW_INITIAL_TOP_K', 20, 10, 100);
+const RERANK_CANDIDATES = intFromEnv('INTERVIEW_RERANK_CANDIDATES', 20, 12, 80);
 const FINAL_CHUNKS = intFromEnv('INTERVIEW_FINAL_CHUNKS', 12, 4, 20);
 
 const TOPIC_EXPANSIONS = [
@@ -54,6 +54,8 @@ const client = new OpenAI({ apiKey: process.env.CUSTOM_OPENAI_API_KEY || process
 
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT_ENTREVISTAS;
 if (!SYSTEM_PROMPT) throw new Error('Missing env var: SYSTEM_PROMPT_ENTREVISTAS');
+const QUERY_REWRITE_PROMPT = process.env.SYSTEM_PROMPT_QUERY_REWRITE_ENTREVISTAS;
+if (!QUERY_REWRITE_PROMPT) throw new Error('Missing env var: SYSTEM_PROMPT_QUERY_REWRITE_ENTREVISTAS');
 
 export const config = {
   api: {
@@ -120,20 +122,11 @@ async function rewriteRetrievalQuery(question) {
     const completion = await client.chat.completions.create({
       model: QUERY_REWRITE_MODEL,
       temperature: 0,
-      max_tokens: 220,
+      max_tokens: 100,
       messages: [
         {
           role: 'system',
-          content: [
-            'Voce reescreve perguntas para busca vetorial em transcricoes de entrevistas de Renan Santos.',
-            'Nao responda a pergunta.',
-            'Gere uma consulta de recuperacao densa, com 3 partes em texto simples:',
-            '1) tema central sem frases conversacionais;',
-            '2) palavras-chave e sinonimos relevantes;',
-            '3) uma passagem hipotetica curta do tipo de trecho que deveria ser encontrado na transcricao.',
-            'Nao inclua opinioes, fatos novos ou conclusoes nao presentes na pergunta.',
-            'Nao escreva JSON, markdown, bullets ou explicacoes.',
-          ].join(' '),
+          content: QUERY_REWRITE_PROMPT,
         },
         { role: 'user', content: question },
       ],
@@ -227,13 +220,13 @@ async function rerankInterviewChunks(question, matches) {
       id: match.id || String(index),
       title: match.meta?.title || '',
       time: match.meta?.start_seconds ?? null,
-      text: String(match.text || '').slice(0, 900),
+      text: String(match.text || '').slice(0, 250),
     }));
 
     const completion = await client.chat.completions.create({
       model: RERANK_MODEL,
       temperature: 0,
-      max_tokens: 600,
+      max_tokens: 80,
       messages: [
         {
           role: 'system',
@@ -280,14 +273,36 @@ async function rerankInterviewChunks(question, matches) {
 }
 
 async function retrieveInterviewChunks(question) {
-  const focusedQuery = await rewriteRetrievalQuery(question);
-  const queries = [...new Set([focusedQuery, question])];
-  const emb = await client.embeddings.create({ model: EMBEDDING_MODEL, input: queries });
-  const embeddings = emb?.data?.map(d => d.embedding).filter(Boolean) || [];
+  const tr0 = Date.now();
 
-  const resultSets = await Promise.all(
-    embeddings.map(embedding => queryEmbeddingInNamespace(embedding, 'entrevistas', INITIAL_TOP_K))
-  );
+  // Start both immediately; origSearch kicks off as soon as embed_orig is ready,
+  // without waiting for the rewrite LLM call to complete.
+  const origEmbPromise = client.embeddings.create({ model: EMBEDDING_MODEL, input: [question] });
+  const rewritePromise = rewriteRetrievalQuery(question);
+
+  const origEmbRes = await origEmbPromise;
+  const origEmbedding = origEmbRes?.data?.[0]?.embedding;
+  const origSearchPromise = origEmbedding
+    ? queryEmbeddingInNamespace(origEmbedding, 'entrevistas', INITIAL_TOP_K)
+    : Promise.resolve([]);
+  console.log(`[timing][entrevistas] embed_orig+pinecone_start=${Date.now() - tr0}ms`);
+
+  const focusedQuery = await rewritePromise;
+  console.log(`[timing][entrevistas] rewrite=${Date.now() - tr0}ms`);
+
+  // Embed rewrite query; origSearch is already running in background
+  let rewriteSearchPromise = Promise.resolve([]);
+  if (focusedQuery && focusedQuery !== question) {
+    const rewriteEmbRes = await client.embeddings.create({ model: EMBEDDING_MODEL, input: [focusedQuery] });
+    console.log(`[timing][entrevistas] embed_rewrite=${Date.now() - tr0}ms`);
+    const rewriteEmbedding = rewriteEmbRes?.data?.[0]?.embedding;
+    if (rewriteEmbedding) {
+      rewriteSearchPromise = queryEmbeddingInNamespace(rewriteEmbedding, 'entrevistas', INITIAL_TOP_K);
+    }
+  }
+
+  const resultSets = await Promise.all([origSearchPromise, rewriteSearchPromise]);
+  console.log(`[timing][entrevistas] pinecone=${Date.now() - tr0}ms candidates=${resultSets.flat().length}`);
 
   const byId = new Map();
   for (const match of resultSets.flat()) {
@@ -297,10 +312,11 @@ async function retrieveInterviewChunks(question) {
 
   const ranked = rankMatches([...byId.values()], question);
   const chunks = await rerankInterviewChunks(question, ranked);
+  console.log(`[timing][entrevistas] rerank=${Date.now() - tr0}ms chunks=${chunks.length}`);
 
   return {
     chunks,
-    dims: embeddings[0]?.length || 0,
+    dims: origEmbedding?.length || 0,
     retrievalQuery: focusedQuery,
   };
 }
@@ -401,12 +417,6 @@ export default async function handler(req, res) {
         content: [
           `<contexto>\n${contextText}\n</contexto>`,
           `<pergunta>${question}</pergunta>`,
-          '<instrucao_resposta>',
-          'Responda de forma substancial, explorando os principais pontos encontrados nas fontes.',
-          'Quando houver material suficiente, organize a resposta em 3 a 6 parágrafos curtos.',
-          'Use detalhes concretos das entrevistas e cite os trechos relevantes no formato exigido pelo sistema.',
-          'Se o contexto for fraco ou insuficiente, diga isso claramente em vez de preencher lacunas.',
-          '</instrucao_resposta>',
           'Resposta:',
         ].join('\n'),
       },

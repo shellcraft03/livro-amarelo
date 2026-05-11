@@ -30,7 +30,7 @@ async function handleGet(req, res) {
   }
 }
 
-const YT_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/;
+const YT_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})([?&#].*)?$/;
 
 
 export const config = {

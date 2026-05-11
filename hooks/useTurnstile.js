@@ -5,6 +5,7 @@ export function useTurnstile(containerId, { onToken, action, lazy = false } = {}
   const tokenResolveRef = useRef(null);
   const activatedRef   = useRef(false);
   const intervalRef    = useRef(null);
+  const onloadRef      = useRef(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -47,21 +48,23 @@ export function useTurnstile(containerId, { onToken, action, lazy = false } = {}
     activatedRef.current = true;
     if (window.turnstile) {
       renderWidget();
-    } else {
-      intervalRef.current = setInterval(() => {
-        if (window.turnstile) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-          renderWidget();
-        }
-      }, 100);
+      return;
     }
+    const script = document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]');
+    if (!script) return;
+    const handler = () => { if (activatedRef.current) renderWidget(); };
+    onloadRef.current = { script, handler };
+    script.addEventListener('load', handler, { once: true });
   }
 
   function cleanup() {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+    if (onloadRef.current) {
+      onloadRef.current.script.removeEventListener('load', onloadRef.current.handler);
+      onloadRef.current = null;
     }
     if (typeof window !== 'undefined' && window.turnstile && widgetIdRef.current != null) {
       window.turnstile.remove(widgetIdRef.current);

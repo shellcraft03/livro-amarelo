@@ -7,6 +7,9 @@ import { chunkText } from '../lib/chunker.js';
 
 try { await import('dotenv').then(d => d.config({ path: '.env.local' })); } catch (e) {}
 
+const LIVRO_NAMESPACE = 'livro-amarelo-v2';
+const EMBEDDING_MODEL = 'text-embedding-3-large';
+
 async function extractPages(data) {
   const pageTexts = [];
 
@@ -44,25 +47,13 @@ async function indexPdf(filePath, title = null) {
   const pages = await extractPages(data);
   console.log(`Extracted ${pages.length} pages from ${path.basename(filePath)}`);
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const preferred = process.env.EMBEDDING_MODEL ? process.env.EMBEDDING_MODEL.split(',') : ['text-embedding-3-small'];
-  const alternatives = ['text-embedding-3-large', 'text-embedding-3-small', 'text-embedding-ada-002'];
-  const modelsToTry = [...new Set([...preferred, ...alternatives])];
-
-  // Preflight: find a working embedding model
-  let workingModel = null;
-  for (const m of modelsToTry) {
-    try {
-      await client.embeddings.create({ model: m, input: 'test' });
-      workingModel = m;
-      console.log(`Using embedding model: ${m}`);
-      break;
-    } catch (e) {
-      console.warn(`Model ${m} unavailable: ${e.message}`);
-    }
-  }
-  if (!workingModel) {
-    console.warn('No embedding model available — chunks will be stored without embeddings (text-match fallback only).');
+  const client = new OpenAI({ apiKey: process.env.CUSTOM_OPENAI_API_KEY || process.env.OPENAI_API_KEY });
+  try {
+    await client.embeddings.create({ model: EMBEDDING_MODEL, input: 'test' });
+    console.log(`Using embedding model: ${EMBEDDING_MODEL}`);
+  } catch (e) {
+    console.error(`Embedding model ${EMBEDDING_MODEL} unavailable: ${e.message}`);
+    process.exit(1);
   }
 
   const items = [];
@@ -78,14 +69,12 @@ async function indexPdf(filePath, title = null) {
       totalChunks++;
 
       let vector = null;
-      if (workingModel) {
-        try {
-          const emb = await client.embeddings.create({ model: workingModel, input: text });
-          vector = emb?.data?.[0]?.embedding ?? null;
-        } catch (e) {
-          console.error(`Embedding failed (page ${i + 1}, chunk ${j}):`, e.message);
-          skipped++;
-        }
+      try {
+        const emb = await client.embeddings.create({ model: EMBEDDING_MODEL, input: text });
+        vector = emb?.data?.[0]?.embedding ?? null;
+      } catch (e) {
+        console.error(`Embedding failed (page ${i + 1}, chunk ${j}):`, e.message);
+        skipped++;
       }
 
       items.push({
@@ -100,7 +89,7 @@ async function indexPdf(filePath, title = null) {
   }
 
   console.log(`\nIndexed ${items.length} chunks (${skipped} without embeddings) from ${filePath}`);
-  await addItems(items);
+  await addItems(items, { namespace: LIVRO_NAMESPACE });
 }
 
 const rawArgs = process.argv.slice(2);
@@ -109,8 +98,8 @@ const args = rawArgs.filter(a => a !== '--reindex');
 
 async function indexFromArgs() {
   if (reindex) {
-    console.log('--reindex: clearing existing store...');
-    await clearStore();
+    console.log(`--reindex: clearing namespace "${LIVRO_NAMESPACE}"...`);
+    await clearStore({ namespace: LIVRO_NAMESPACE });
   }
 
   if (args.length === 0) {

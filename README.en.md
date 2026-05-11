@@ -11,7 +11,7 @@ Retrieval-Augmented Generation with OpenAI · Protected by Cloudflare Turnstile
 ---
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4.1--mini-412991?style=flat-square&logo=openai)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4.1-412991?style=flat-square&logo=openai)
 ![Pinecone](https://img.shields.io/badge/Pinecone-Vector%20DB-00B07D?style=flat-square)
 ![Neon](https://img.shields.io/badge/Neon-Postgres-00E699?style=flat-square&logo=postgresql&logoColor=black)
 ![Upstash](https://img.shields.io/badge/Upstash-Rate%20Limit-00E9A3?style=flat-square&logo=upstash)
@@ -33,11 +33,12 @@ This web application allows users to explore the content of O Livro Amarelo and 
 ## Features
 
 - **Full RAG pipeline** — semantic search via embeddings + contextualized response generation
-- **Renan Responde** — Q&A based on YouTube interviews: automatic transcription, AI speaker filtering, sentence-boundary chunking, inline citations `[1][2]` with direct links to the exact moment in the video
+- **Renan Responde** — Q&A based on YouTube interviews: automatic transcription, AI speaker filtering, sentence-boundary chunking, inline citations `[1][2]` with direct links to the exact moment in the video; copy-text and download-as-image buttons for sharing answers
 - **Automatic interview curation** — an AI agent periodically evaluates links submitted by users and approves/rejects them based on defined criteria (main interviewee, complete interview, independent channel, substantive political content)
 - **User video submission** — form on the `/entrevistas` page to suggest YouTube links; protected by Turnstile + rate limit
-- **CAPTCHA protection** — Cloudflare Turnstile with lazy initialization (activates only on input focus) and a fresh token per request
+- **CAPTCHA protection** — Cloudflare Turnstile with lazy initialization (activates only on input focus); on entry it creates an HMAC-SHA256 HttpOnly session cookie (6h TTL) — chat endpoints skip Turnstile while the session is valid
 - **Shared rate limiting** — 10 req/min and 50 req/day per IP via Sliding Window (`@upstash/ratelimit`); counters shared across all endpoints (book chat, interview chat, and video submission) · in-memory fallback (local dev)
+- **Channel blocking** — curation automatically rejects videos from channels configured in `BLOCKED_YOUTUBE_CHANNEL_NAMES` (semicolon-separated terms)
 - **Concrete answers** — the model cites only what is explicitly found in the indexed sources
 - **Federal deputies** — `/deputados` page showing Chamber of Deputies composition by party and state, via the Câmara dos Deputados API
 - **Party membership data** — `/filiados` page showing party affiliation counts by state, automatically updated every Monday via GitHub Actions from public TSE data
@@ -50,9 +51,9 @@ This web application allows users to explore the content of O Livro Amarelo and 
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 16 · React 18 |
-| LLM | OpenAI GPT-4.1-mini (book) · GPT-4.1 (interviews) |
-| Embeddings | OpenAI text-embedding-3-small (book) · text-embedding-3-large (interviews) |
-| Vector store | Pinecone — namespace `default` (book) and `entrevistas` (YouTube) |
+| LLM | OpenAI GPT-4.1 (book and interviews) |
+| Embeddings | OpenAI text-embedding-3-large (book and interviews) |
+| Vector store | Pinecone — namespace `livro-amarelo-v2` (book) and `entrevistas` (YouTube) |
 | Relational DB | Neon Postgres (serverless) |
 | YouTube transcription | youtube-transcript-api (Python, CI) · youtube-transcript (Node, local) |
 | CAPTCHA | Cloudflare Turnstile |
@@ -84,19 +85,22 @@ livro-amarelo/
 │   └── api/
 │       ├── chat.js                  # RAG + LLM — Livro Amarelo
 │       ├── chat-entrevistas.js      # RAG + LLM — YouTube interviews (entrevistas namespace)
+│       ├── session.js               # GET check session · POST create session cookie via Turnstile
 │       ├── videos.js                # GET indexed list · POST suggestion submission
 │       ├── deputados.js             # Deputies endpoint (Neon + join with filiados)
 │       └── filiados.js              # Party membership endpoint (Neon Postgres)
 ├── hooks/
-│   └── useTurnstile.js              # React hook for the Turnstile widget
+│   ├── useTurnstile.js              # React hook for the Turnstile widget
+│   └── useSessionGate.js            # React hook to verify session via cookie and redirect if invalid
 ├── lib/
 │   ├── turnstile.js                 # Server-side token verification
+│   ├── session.js                   # HMAC-SHA256 session cookie generation and validation
 │   ├── chunker.js                   # Text splitting and normalization (PDF)
 │   ├── vectorStore.js               # Embedding storage and search (Pinecone)
 │   └── rateLimiter.js               # IP-based rate limiting (shared across endpoints)
 ├── curar-indexar.bat                # Interactive local menu for video management (curation + indexing)
 ├── scripts/
-│   ├── process_videos_ci.py         # CI: curation + indexing in a single pass (Python, no double download)
+│   ├── process_videos_ci.py         # CI: curation + indexing in a single pass (Python); blocks configured channels; prefers BR → US proxies
 │   ├── migrate_videos.mjs           # Create/update videos table in Neon
 │   ├── curate_videos.mjs            # Curate pending videos via GPT-4.1-mini (local use)
 │   ├── index_youtube.mjs            # Transcription, speaker filter, chunking, embeddings → Pinecone (local use)
@@ -139,8 +143,8 @@ TURNSTILE_SECRET=0x...
 
 # Pinecone
 PINECONE_API_KEY=pcsk-...
-PINECONE_INDEX=your-index-name               # book index (1536 dim, text-embedding-3-small)
-PINECONE_INDEX_ENTREVISTAS=your-index-name   # interviews index (3072 dim, text-embedding-3-large)
+PINECONE_INDEX_LIVRO=your-index-name         # book index (3072 dim, text-embedding-3-large, namespace livro-amarelo-v2)
+PINECONE_INDEX_ENTREVISTAS=your-index-name   # interviews index (3072 dim, text-embedding-3-large, namespace entrevistas)
 
 # Enable RAG pipeline
 USE_RAG=true
@@ -156,11 +160,19 @@ DATABASE_URL=postgresql://...
 WEBSHARE_PROXY_USERNAME=...
 WEBSHARE_PROXY_PASSWORD=...
 
-# Curation system prompt (used by the Python CI script)
+# System prompts (used by scripts and API routes)
 SYSTEM_PROMPT_CURADORIA=...
+SYSTEM_PROMPT_QUERY_REWRITE_LIVRO=...
+SYSTEM_PROMPT_QUERY_REWRITE_ENTREVISTAS=...
+
+# Session secret (optional; falls back to TURNSTILE_SECRET if absent)
+APP_SESSION_SECRET=...
+
+# YouTube channels blocked during curation (semicolon-separated terms)
+BLOCKED_YOUTUBE_CHANNEL_NAMES=...
 ```
 
-> **Pinecone:** the project uses two separate indexes. `PINECONE_INDEX`: dimension **1536**, compatible with `text-embedding-3-small`, namespace `default` (Livro Amarelo). `PINECONE_INDEX_ENTREVISTAS`: dimension **3072**, compatible with `text-embedding-3-large`, namespace `entrevistas` (YouTube). If `PINECONE_INDEX_ENTREVISTAS` is not set, the code falls back to `PINECONE_INDEX`.
+> **Pinecone:** the project uses two indexes. `PINECONE_INDEX_LIVRO`: dimension **3072**, compatible with `text-embedding-3-large`, namespace `livro-amarelo-v2` (Livro Amarelo). `PINECONE_INDEX_ENTREVISTAS`: dimension **3072**, compatible with `text-embedding-3-large`, namespace `entrevistas` (YouTube).
 
 > **Neon:** the `videos` table is created/updated by `migrate_videos.mjs`. Run it once before indexing any interviews.
 
@@ -223,25 +235,26 @@ npm run build && npm start     # production
 User
   │
   ▼
-┌───────────────────────────────────────────┐
-│  /  — Turnstile Verification              │  Solve CAPTCHA → click "Enter"
-└─────────────┬─────────────────────────────┘
-              │ token saved in sessionStorage
+┌───────────────────────────────────────────────┐
+│  /  — Turnstile Verification                  │  Solve CAPTCHA → click "Enter"
+└─────────────┬─────────────────────────────────┘
+              │ POST /api/session → HttpOnly cookie ia_session (HMAC-SHA256, TTL 6h)
               ▼
 ┌─────────────────────────────────────────────────────────┐
 │  /inicio — Q&A Livro Amarelo                            │
 │  /renan-santos-responde — Renan Responde (interviews)   │
 └─────────────┬───────────────────────────────────────────┘
-              │ fresh token generated per request (invisible Turnstile)
+              │ GET /api/session validates cookie; redirects to / if invalid
+              │ ia_session cookie sent automatically by the browser
               ▼
 ┌───────────────────────────────────────────┐
 │  /api/chat  or  /api/chat-entrevistas     │
-│  1. Verify Turnstile                      │
+│  1. Verify session (cookie) or Turnstile  │
 │  2. Rate limit per IP (min + day)         │
-│  3. Embed the question                    │
-│  4. Retrieve top-14 chunks (Pinecone)     │
+│  3. Rewrite query + generate embeddings   │
+│  4. Retrieve and re-rank chunks (Pinecone)│
 │  5. Build prompt with context             │
-│  6. GPT-4.1-mini responds via streaming   │
+│  6. GPT-4.1 responds via streaming        │
 └─────────────┬─────────────────────────────┘
               │
               ▼

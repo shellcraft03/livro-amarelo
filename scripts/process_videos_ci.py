@@ -303,6 +303,10 @@ def index_video(conn, video, segments, meta=None):
     if yt_title:     print(f'[{vid_id}] Título: {yt_title}')
     if channel:      print(f'[{vid_id}] Canal: {channel}')
 
+    if not title:
+        print(f'[{vid_id}] Título indisponível, pulando.')
+        return False
+
     print(f'[{vid_id}] {len(segments)} segmentos — filtrando falas de {individual or "Renan Santos"}...')
     filtered = filter_speaker_segments(segments, individual)
     print(f'\n[{vid_id}] {len(filtered)}/{len(segments)} segmentos após filtro de speaker.')
