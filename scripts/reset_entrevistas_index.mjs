@@ -8,7 +8,7 @@ const pc  = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
 
 console.log('Apagando vetores do namespace "entrevistas" no Pinecone...');
 try {
-  await pc.index(process.env.PINECONE_INDEX_ENTREVISTAS || process.env.PINECONE_INDEX).namespace('entrevistas').deleteAll();
+  await pc.index(process.env.PINECONE_INDEX_ENTREVISTAS).namespace('entrevistas').deleteAll();
   console.log('Vetores apagados.');
 } catch (e) {
   if (e.name === 'PineconeNotFoundError') {

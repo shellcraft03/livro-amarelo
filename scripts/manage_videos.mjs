@@ -6,7 +6,7 @@ try { await import('dotenv').then(d => d.config({ path: '.env.local' })); } catc
 
 const sql  = neon(process.env.DATABASE_URL);
 const pc   = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
-const idx  = pc.index(process.env.PINECONE_INDEX_ENTREVISTAS || process.env.PINECONE_INDEX).namespace('entrevistas');
+const idx  = pc.index(process.env.PINECONE_INDEX_ENTREVISTAS).namespace('entrevistas');
 const mode = process.argv[2];
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
