@@ -5,7 +5,7 @@ cd /d %~dp0
 cls
 echo.
 echo  ============================================
-echo    Gestao de Videos -- Livro Amarelo
+echo    Gestao de Videos -- InevitavelGPT
 echo  ============================================
 echo.
 echo   [1] Listar videos pendentes de curadoria
@@ -17,16 +17,17 @@ echo   [6] Reprovar video ja aprovado
 echo   [7] Resetar indice / curadoria
 echo   [0] Sair
 echo.
-choice /c 01234567 /n /m "Escolha: "
-
-if errorlevel 8 goto OPT7
-if errorlevel 7 goto OPT6
-if errorlevel 6 goto OPT5
-if errorlevel 5 goto OPT4
-if errorlevel 4 goto OPT3
-if errorlevel 3 goto OPT2
-if errorlevel 2 goto OPT1
-goto EXIT
+set OPCAO=
+set /p OPCAO="Escolha: "
+if "%OPCAO%"=="1" goto OPT1
+if "%OPCAO%"=="2" goto OPT2
+if "%OPCAO%"=="3" goto OPT3
+if "%OPCAO%"=="4" goto OPT4
+if "%OPCAO%"=="5" goto OPT5
+if "%OPCAO%"=="6" goto OPT6
+if "%OPCAO%"=="7" goto OPT7
+if "%OPCAO%"=="0" goto EXIT
+goto MENU
 
 :OPT1
 echo.
@@ -83,13 +84,14 @@ echo   [3] Resetar curadoria de todos os videos (mantem vetores Pinecone)
 echo   [4] Resetar curadoria de um video especifico (mantem vetores Pinecone)
 echo   [0] Voltar
 echo.
-choice /c 01234 /n /m "Escolha: "
-
-if errorlevel 5 goto RESET_CURATION_ONE
-if errorlevel 4 goto RESET_CURATION_ALL
-if errorlevel 3 goto RESET_ONE
-if errorlevel 2 goto RESET_ALL
-goto MENU
+set OPCAO=
+set /p OPCAO="Escolha: "
+if "%OPCAO%"=="1" goto RESET_ALL
+if "%OPCAO%"=="2" goto RESET_ONE
+if "%OPCAO%"=="3" goto RESET_CURATION_ALL
+if "%OPCAO%"=="4" goto RESET_CURATION_ONE
+if "%OPCAO%"=="0" goto MENU
+goto OPT7
 
 :RESET_ALL
 echo.
