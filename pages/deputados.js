@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
 import { useDarkMode } from '../hooks/useDarkMode';
+import { useSessionGate } from '../hooks/useSessionGate';
 import Header from '../components/Header';
 import CustomSelect from '../components/CustomSelect';
 
@@ -23,7 +23,7 @@ function legLabel(leg) {
 
 export default function Deputados() {
   const [dark, toggleDark] = useDarkMode();
-  const router = useRouter();
+  useSessionGate();
 
   const [allData, setAllData] = useState([]);
   const [legislaturas, setLegislaturas] = useState([]);
@@ -31,11 +31,6 @@ export default function Deputados() {
   const [error, setError] = useState(null);
   const [selectedUF, setSelectedUF] = useState('');
   const [selectedLeg, setSelectedLeg] = useState(null);
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
-    if (!token) router.replace('/');
-  }, [router]);
 
   useEffect(() => {
     fetch('/api/deputados?meta=1')

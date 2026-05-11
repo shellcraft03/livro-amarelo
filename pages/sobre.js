@@ -1,18 +1,12 @@
-import { useEffect } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
 import { useDarkMode } from '../hooks/useDarkMode';
+import { useSessionGate } from '../hooks/useSessionGate';
 import Header from '../components/Header';
 import ShareBar from '../components/ShareBar';
 
 export default function Sobre() {
   const [dark, toggleDark] = useDarkMode();
-  const router = useRouter();
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
-    if (!token) router.replace('/');
-  }, [router]);
+  useSessionGate();
 
   const s = getStyles(dark);
 

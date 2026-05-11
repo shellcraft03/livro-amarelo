@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useTurnstile } from '../hooks/useTurnstile';
 import { useDarkMode } from '../hooks/useDarkMode';
+import { useSessionGate } from '../hooks/useSessionGate';
 import Header from '../components/Header';
 import ShareBar from '../components/ShareBar';
 
@@ -25,15 +25,9 @@ export default function QA() {
   const [rateLimitError, setRateLimitError] = useState(null);
   const [dark, toggleDark] = useDarkMode();
   const router = useRouter();
+  useSessionGate();
   const inputRef = useRef(null);
   const answerRef = useRef(null);
-
-  const { getFreshToken, activate } = useTurnstile('turnstile-container-qa', { action: 'chat', lazy: true });
-
-  // Redireciona para / se não houver token de verificação
-  if (typeof window !== 'undefined' && !sessionStorage.getItem('turnstileToken')) {
-    router.replace('/');
-  }
 
   function handleReset() {
     setQ('');
@@ -54,19 +48,10 @@ export default function QA() {
     setStreaming(false);
     setRateLimitError(null);
 
-    const freshToken = await getFreshToken();
-    if (!freshToken) {
-      setLoading(false);
-      sessionStorage.removeItem('turnstileToken');
-      alert('Verificação expirou. Você será redirecionado.');
-      router.replace('/');
-      return;
-    }
-
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: text, turnstileToken: freshToken })
+      body: JSON.stringify({ question: text })
     });
 
     if (res.status === 403) {
@@ -312,7 +297,6 @@ export default function QA() {
                 ref={inputRef}
                 value={q}
                 onChange={e => setQ(e.target.value)}
-                onFocus={activate}
                 onKeyDown={handleKeyDown}
                 placeholder="Ex: Quais são as propostas para a saúde?"
                 maxLength={MAX_QUESTION_LENGTH}
@@ -399,7 +383,6 @@ export default function QA() {
 
         </main>
 
-        <div id="turnstile-container-qa" style={{ display: 'none' }} />
       </div>
     </>
   );

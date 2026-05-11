@@ -67,6 +67,15 @@ export function useTurnstile(containerId, { onToken, action, lazy = false } = {}
       window.turnstile.remove(widgetIdRef.current);
       widgetIdRef.current = null;
     }
+    activatedRef.current = false;
+    tokenResolveRef.current = null;
+    setReady(false);
+  }
+
+  function reset() {
+    if (typeof window !== 'undefined' && window.turnstile && widgetIdRef.current != null) {
+      window.turnstile.reset(widgetIdRef.current);
+    }
   }
 
   async function getFreshToken() {
@@ -85,5 +94,5 @@ export function useTurnstile(containerId, { onToken, action, lazy = false } = {}
     });
   }
 
-  return { ready, getFreshToken, activate };
+  return { ready, getFreshToken, activate, reset };
 }

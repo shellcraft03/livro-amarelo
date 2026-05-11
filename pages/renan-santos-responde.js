@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useDarkMode } from '../hooks/useDarkMode';
-import { useTurnstile } from '../hooks/useTurnstile';
+import { useSessionGate } from '../hooks/useSessionGate';
 import Header from '../components/Header';
 
 const MAX_QUESTION_LENGTH = 1000;
@@ -67,15 +67,9 @@ export default function RenanSantosResponde() {
   const [askedQuestion, setAskedQuestion] = useState('');
   const [rateLimitError, setRateLimitError] = useState(null);
   const router   = useRouter();
+  useSessionGate();
   const inputRef = useRef(null);
   const answerRef = useRef(null);
-
-  const { getFreshToken, activate } = useTurnstile('turnstile-entrevistas', { action: 'chat', lazy: true });
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
-    if (!token) { router.replace('/'); return; }
-  }, [router]);
 
   function handleReset() {
     setQ('');
@@ -96,19 +90,10 @@ export default function RenanSantosResponde() {
     setStreaming(false);
     setRateLimitError(null);
 
-    const freshToken = await getFreshToken();
-    if (!freshToken) {
-      setLoading(false);
-      sessionStorage.removeItem('turnstileToken');
-      alert('Verificação expirou. Você será redirecionado.');
-      router.replace('/');
-      return;
-    }
-
     const res = await fetch('/api/chat-entrevistas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: text, turnstileToken: freshToken }),
+      body: JSON.stringify({ question: text }),
     });
 
     if (res.status === 403) {
@@ -192,7 +177,6 @@ export default function RenanSantosResponde() {
                 ref={inputRef}
                 value={q}
                 onChange={e => setQ(e.target.value)}
-                onFocus={activate}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); } }}
                 placeholder="Ex: O que ele disse sobre educação?"
                 maxLength={MAX_QUESTION_LENGTH}
@@ -295,7 +279,6 @@ export default function RenanSantosResponde() {
 
         </main>
 
-        <div id="turnstile-entrevistas" style={{ display: 'none' }} />
       </div>
     </>
   );
