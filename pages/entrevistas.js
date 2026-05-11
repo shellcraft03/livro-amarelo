@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
 import { useDarkMode } from '../hooks/useDarkMode';
-import { useTurnstile } from '../hooks/useTurnstile';
+import { useSessionGate } from '../hooks/useSessionGate';
 import Header from '../components/Header';
 
 function YouTubeIcon() {
@@ -45,18 +44,15 @@ export default function Entrevistas() {
   const [submitUrl, setSubmitUrl]         = useState('');
   const [submitting, setSubmitting]       = useState(false);
   const [submitStatus, setSubmitStatus]   = useState(null); // { ok: bool, msg: string }
-  const router = useRouter();
-  const { getFreshToken, activate } = useTurnstile('turnstile-videos', { action: 'chat', lazy: true });
+  useSessionGate();
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
-    if (!token) { router.replace('/'); return; }
     fetch('/api/videos')
       .then(r => r.json())
       .then(data => setVideos(data.videos || []))
       .catch(() => {})
       .finally(() => setVideosLoading(false));
-  }, [router]);
+  }, []);
 
   const filtered = videos.filter(v => {
     const q = search.trim().toLowerCase();
@@ -75,16 +71,10 @@ export default function Entrevistas() {
     setSubmitting(true);
     setSubmitStatus(null);
     try {
-      const turnstileToken = await getFreshToken();
-      if (!turnstileToken) {
-        setSubmitStatus({ ok: false, msg: 'Verificação de segurança falhou. Recarregue a página.' });
-        setSubmitting(false);
-        return;
-      }
       const res = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, turnstileToken }),
+        body: JSON.stringify({ url }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -134,7 +124,6 @@ export default function Entrevistas() {
                 type="url"
                 value={submitUrl}
                 onChange={e => { setSubmitUrl(e.target.value); setSubmitStatus(null); }}
-                onFocus={activate}
                 placeholder="https://www.youtube.com/watch?v=..."
                 disabled={submitting}
                 style={s.submitInput}
@@ -215,7 +204,6 @@ export default function Entrevistas() {
           )}
 
         </main>
-        <div id="turnstile-videos" style={{ display: 'none' }} />
       </div>
     </>
   );

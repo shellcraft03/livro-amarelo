@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { checkMinuteLimit, checkDailyLimit, logBlock } from '../../lib/rateLimiter.js';
+import { hasValidHumanSession } from '../../lib/session.js';
 import { queryEmbedding } from '../../lib/vectorStore.js';
 import { verifyTurnstile } from '../../lib/turnstile.js';
 
@@ -23,7 +24,8 @@ export const config = {
 function getIp(req) {
   const forwardedFor = req.headers['x-forwarded-for'];
   const realIp = req.headers['x-real-ip'];
-  return (forwardedFor || realIp || req.socket.remoteAddress || '').toString().split(',')[0].trim() || 'unknown';
+  const ip = (forwardedFor || realIp || req.socket.remoteAddress || '').toString().split(',')[0].trim();
+  return ip && !['::1', '127.0.0.1', '::ffff:127.0.0.1', 'localhost'].includes(ip) ? ip : 'unknown';
 }
 
 function sanitizeQuestion(raw) {
@@ -54,8 +56,9 @@ export default async function handler(req, res) {
 
     const ip = getIp(req);
 
+    const sessionOk = hasValidHumanSession(req);
     const [okRes, rl, daily] = await Promise.all([
-      verifyTurnstile(turnstileToken, { ip, action: TURNSTILE_ACTION }),
+      sessionOk ? Promise.resolve({ ok: true }) : verifyTurnstile(turnstileToken, { ip, action: TURNSTILE_ACTION }),
       checkMinuteLimit(ip),
       checkDailyLimit(ip),
     ]);

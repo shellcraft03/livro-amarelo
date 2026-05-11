@@ -1,6 +1,5 @@
 import Head from 'next/head';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
 import { useTurnstile } from '../hooks/useTurnstile';
 import { useDarkMode } from '../hooks/useDarkMode';
 import ShareBar from '../components/ShareBar';
@@ -39,8 +38,9 @@ function MoonIcon() {
 }
 
 export default function Entry() {
-  const router = useRouter();
   const [pendingToken, setPendingToken] = useState(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState(null);
   const [dark, toggleDark] = useDarkMode();
   const [fasiculo, setFasiculo] = useState(null);
 
@@ -48,17 +48,41 @@ export default function Entry() {
     setFasiculo(FASICULOS[Math.floor(Math.random() * FASICULOS.length)]);
   }, []);
 
-  useTurnstile('turnstile-container', {
+  const { reset } = useTurnstile('turnstile-container', {
     action: 'entry',
     onToken: (token) => {
       setPendingToken(token);
+      setVerifyError(null);
     }
   });
 
-  function execute() {
+  async function execute() {
     if (!pendingToken) return;
-    sessionStorage.setItem('turnstileToken', pendingToken);
-    router.push('/inicio');
+    setVerifying(true);
+    try {
+      const res = await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turnstileToken: pendingToken }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPendingToken(null);
+        setVerifyError(`Verificacao falhou${data.reason ? `: ${data.reason}` : ''}. Resolva o CAPTCHA novamente.`);
+        setVerifying(false);
+        reset();
+        return;
+      }
+      try {
+        sessionStorage.setItem('turnstileToken', 'ok');
+      } catch {
+      }
+      window.location.assign('/inicio');
+    } catch {
+      setVerifyError('Não foi possível verificar agora. Tente novamente.');
+      setVerifying(false);
+      reset();
+    }
   }
 
   const s = getStyles(dark);
@@ -107,11 +131,13 @@ export default function Entry() {
 
             <button
               onClick={execute}
-              disabled={!pendingToken}
-              style={pendingToken ? s.btnActive : s.btnDisabled}
+              disabled={!pendingToken || verifying}
+              style={pendingToken && !verifying ? s.btnActive : s.btnDisabled}
             >
-              {pendingToken ? 'Entrar →' : 'Resolva o CAPTCHA acima'}
+              {verifying ? 'Verificando...' : pendingToken ? 'Entrar' : 'Resolva o CAPTCHA acima'}
             </button>
+
+            {verifyError && <p style={s.errorText}>{verifyError}</p>}
 
             <p style={s.cardNote}>
               Apenas dados básicos e anônimos são coletados para manter a segurança e o funcionamento do site.{' '}
@@ -229,6 +255,13 @@ function getStyles(dark) {
       fontSize: '0.75rem',
       textAlign: 'center',
       marginTop: '14px',
+    },
+    errorText: {
+      color: '#CC0000',
+      fontSize: '0.82rem',
+      fontWeight: 600,
+      marginTop: '10px',
+      textAlign: 'center',
     },
     cardNoteLink: {
       color: dark ? '#FCBF22' : '#000000',

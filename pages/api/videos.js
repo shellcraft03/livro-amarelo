@@ -1,11 +1,13 @@
 import { neon } from '@neondatabase/serverless';
 import { checkMinuteLimit, checkDailyLimit, logBlock } from '../../lib/rateLimiter.js';
+import { hasValidHumanSession } from '../../lib/session.js';
 import { verifyTurnstile } from '../../lib/turnstile.js';
 
 function getIp(req) {
   const forwardedFor = req.headers['x-forwarded-for'];
   const realIp = req.headers['x-real-ip'];
-  return (forwardedFor || realIp || req.socket.remoteAddress || '').toString().split(',')[0].trim() || 'unknown';
+  const ip = (forwardedFor || realIp || req.socket.remoteAddress || '').toString().split(',')[0].trim();
+  return ip && !['::1', '127.0.0.1', '::ffff:127.0.0.1', 'localhost'].includes(ip) ? ip : 'unknown';
 }
 
 async function handleGet(req, res) {
@@ -51,7 +53,9 @@ export default async function handler(req, res) {
 
   const { url, turnstileToken } = req.body || {};
 
-  const okRes = await verifyTurnstile(turnstileToken, { ip, action: 'chat' });
+  const okRes = hasValidHumanSession(req)
+    ? { ok: true }
+    : await verifyTurnstile(turnstileToken, { ip, action: 'chat' });
   if (!okRes.ok) {
     console.warn(`[videos] turnstile failed ip=${ip} reason=${okRes.reason || 'unknown'}`);
     return res.status(403).json({ error: 'Verificação de segurança falhou.' });

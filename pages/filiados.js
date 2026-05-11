@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
 import { useDarkMode } from '../hooks/useDarkMode';
+import { useSessionGate } from '../hooks/useSessionGate';
 import Header from '../components/Header';
 import CustomSelect from '../components/CustomSelect';
 
@@ -22,7 +22,7 @@ function periodLabel(p) {
 
 export default function Filiados() {
   const [dark, toggleDark] = useDarkMode();
-  const router = useRouter();
+  useSessionGate();
 
   const [allData, setAllData] = useState([]);
   const [periodos, setPeriodos] = useState([]);
@@ -30,11 +30,6 @@ export default function Filiados() {
   const [error, setError] = useState(null);
   const [selectedUF, setSelectedUF] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('');
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('turnstileToken') : null;
-    if (!token) router.replace('/');
-  }, [router]);
 
   useEffect(() => {
     fetch('/api/filiados?meta=1')
