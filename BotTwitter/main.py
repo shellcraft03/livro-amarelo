@@ -14,7 +14,7 @@ try:
     from InevitavelGPT.bot import buscar_e_responder
 except BaseException as exc:
     logging.critical('Falha ao importar bot: %s', exc)
-    traceback.print_exc()
+    traceback.print_exc(file=sys.stdout)
     sys.exit(1)
 
 INTERVAL_SECONDS = 300
@@ -28,6 +28,6 @@ if __name__ == '__main__':
             buscar_e_responder()
         except BaseException as exc:
             logging.error('Erro: %s', exc)
-            traceback.print_exc()
-            sys.stdout.flush()
+            traceback.print_exc(file=sys.stdout)
+        sys.stdout.flush()
         time.sleep(INTERVAL_SECONDS)
