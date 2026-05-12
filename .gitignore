@@ -13,3 +13,6 @@ skills/
 tmp/
 .vercel
 .env*.local
+.vscode/
+BotTwitter/**/.env
+BotTwitter/**/.venv/
