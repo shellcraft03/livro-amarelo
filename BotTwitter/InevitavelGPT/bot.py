@@ -216,16 +216,13 @@ def buscar_e_responder():
 
         answer = _call_bot_api(question, qtype)
         if not answer:
-            processed.add(tweet_id)
-            new_max_id = _max_id(tweet_id, new_max_id)
+            logging.warning('Bot API returned no answer for tweet %s — will retry', tweet_id)
             continue
 
         try:
             image_bytes = generate_answer_image(question, answer, qtype)
         except Exception as exc:
-            logging.error('Image generation failed for tweet %s: %s', tweet_id, exc)
-            processed.add(tweet_id)
-            new_max_id = _max_id(tweet_id, new_max_id)
+            logging.error('Image generation failed for tweet %s: %s — will retry', tweet_id, exc)
             continue
 
         try:
@@ -233,9 +230,11 @@ def buscar_e_responder():
             _create_reply(media_id, tweet_id)
             logging.info('Replied to tweet %s', tweet_id)
         except requests.HTTPError as exc:
-            logging.error('Twitter reply failed: %s %s', exc.response.status_code, exc.response.text[:200])
+            logging.error('Twitter reply failed: %s %s — will retry', exc.response.status_code, exc.response.text[:200])
+            continue
         except Exception as exc:
-            logging.error('Twitter reply error: %s', exc)
+            logging.error('Twitter reply error: %s — will retry', exc)
+            continue
 
         processed.add(tweet_id)
         new_max_id = _max_id(tweet_id, new_max_id)
