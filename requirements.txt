@@ -1,0 +1,5 @@
+youtube-transcript-api==1.2.4
+openai==2.36.0
+psycopg2-binary==2.9.12
+pinecone==9.0.0
+requests==2.34.0

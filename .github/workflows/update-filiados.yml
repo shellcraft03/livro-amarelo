@@ -20,7 +20,7 @@ jobs:
           node-version: '24'
 
       - name: Instalar dependências
-        run: npm install
+        run: npm ci
 
       - name: Baixar dados do TSE
         run: |
