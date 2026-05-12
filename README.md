@@ -36,7 +36,7 @@ Esta aplicação web permite explorar o conteúdo do Livro Amarelo e as entrevis
 - **Renan Responde** — Q&A com base em entrevistas do YouTube: transcrição automática, filtro de speaker por IA, chunking por fronteira de frase, citações inline `[1][2]` com link direto para o trecho no vídeo; botões de cópia do texto e download da resposta como imagem
 - **Curadoria automática de entrevistas** — agente de IA avalia periodicamente links submetidos por usuários e aprova/reprova com base em critérios (entrevistado principal, entrevista completa, canal independente, conteúdo político substantivo)
 - **Submissão de vídeos por usuários** — formulário na página `/entrevistas` para sugerir links do YouTube; protegido por Turnstile + rate limit
-- **Proteção por CAPTCHA** — Cloudflare Turnstile com inicialização lazy (ativa apenas no foco do input); na entrada cria um cookie de sessão HMAC-SHA256 HttpOnly (TTL 6h) — endpoints de chat pulam o Turnstile enquanto a sessão for válida
+- **Proteção por CAPTCHA** — Cloudflare Turnstile com inicialização lazy (ativa apenas no foco do input); na entrada cria um cookie de sessão HMAC-SHA256 HttpOnly (TTL 1h) — endpoints de chat pulam o Turnstile enquanto a sessão for válida
 - **Rate limiting compartilhado** — 10 req/min e 50 req/dia por IP via Sliding Window (`@upstash/ratelimit`); contadores compartilhados entre todos os endpoints (chat do livro, chat de entrevistas e submissão de vídeos) · fallback em memória (dev local)
 - **Bloqueio de canais** — curadoria rejeita automaticamente vídeos de canais configurados em `BLOCKED_YOUTUBE_CHANNEL_NAMES` (termos separados por `;`)
 - **Respostas concretas** — o modelo cita apenas o que está explicitamente nas fontes indexadas
@@ -165,7 +165,7 @@ SYSTEM_PROMPT_CURADORIA=...
 SYSTEM_PROMPT_QUERY_REWRITE_LIVRO=...
 SYSTEM_PROMPT_QUERY_REWRITE_ENTREVISTAS=...
 
-# Sessão de acesso (opcional; fallback para TURNSTILE_SECRET se ausente)
+# Sessão de acesso (obrigatório)
 APP_SESSION_SECRET=...
 
 # Canais do YouTube bloqueados na curadoria (termos separados por ";")
@@ -238,7 +238,7 @@ Usuário
 ┌───────────────────────────────────────────────┐
 │  /  — Verificação Turnstile                   │  Resolve o CAPTCHA → clica "Entrar"
 └─────────────┬─────────────────────────────────┘
-              │ POST /api/session → cookie HttpOnly ia_session (HMAC-SHA256, TTL 6h)
+              │ POST /api/session → cookie HttpOnly ia_session (HMAC-SHA256, TTL 1h)
               ▼
 ┌─────────────────────────────────────────────────────────┐
 │  /inicio — Q&A Livro Amarelo                            │

@@ -36,7 +36,7 @@ This web application allows users to explore the content of O Livro Amarelo and 
 - **Renan Responde** — Q&A based on YouTube interviews: automatic transcription, AI speaker filtering, sentence-boundary chunking, inline citations `[1][2]` with direct links to the exact moment in the video; copy-text and download-as-image buttons for sharing answers
 - **Automatic interview curation** — an AI agent periodically evaluates links submitted by users and approves/rejects them based on defined criteria (main interviewee, complete interview, independent channel, substantive political content)
 - **User video submission** — form on the `/entrevistas` page to suggest YouTube links; protected by Turnstile + rate limit
-- **CAPTCHA protection** — Cloudflare Turnstile with lazy initialization (activates only on input focus); on entry it creates an HMAC-SHA256 HttpOnly session cookie (6h TTL) — chat endpoints skip Turnstile while the session is valid
+- **CAPTCHA protection** — Cloudflare Turnstile with lazy initialization (activates only on input focus); on entry it creates an HMAC-SHA256 HttpOnly session cookie (1h TTL) — chat endpoints skip Turnstile while the session is valid
 - **Shared rate limiting** — 10 req/min and 50 req/day per IP via Sliding Window (`@upstash/ratelimit`); counters shared across all endpoints (book chat, interview chat, and video submission) · in-memory fallback (local dev)
 - **Channel blocking** — curation automatically rejects videos from channels configured in `BLOCKED_YOUTUBE_CHANNEL_NAMES` (semicolon-separated terms)
 - **Concrete answers** — the model cites only what is explicitly found in the indexed sources
@@ -165,7 +165,7 @@ SYSTEM_PROMPT_CURADORIA=...
 SYSTEM_PROMPT_QUERY_REWRITE_LIVRO=...
 SYSTEM_PROMPT_QUERY_REWRITE_ENTREVISTAS=...
 
-# Session secret (optional; falls back to TURNSTILE_SECRET if absent)
+# Session secret (required)
 APP_SESSION_SECRET=...
 
 # YouTube channels blocked during curation (semicolon-separated terms)
@@ -238,7 +238,7 @@ User
 ┌───────────────────────────────────────────────┐
 │  /  — Turnstile Verification                  │  Solve CAPTCHA → click "Enter"
 └─────────────┬─────────────────────────────────┘
-              │ POST /api/session → HttpOnly cookie ia_session (HMAC-SHA256, TTL 6h)
+              │ POST /api/session → HttpOnly cookie ia_session (HMAC-SHA256, TTL 1h)
               ▼
 ┌─────────────────────────────────────────────────────────┐
 │  /inicio — Q&A Livro Amarelo                            │
