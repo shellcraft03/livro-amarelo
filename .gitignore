@@ -11,6 +11,7 @@ AGENTS.md
 CLAUDE.md
 skills/
 tmp/
+scripts/test_vercel_image.mjs
 .vercel
 .env*.local
 .vscode/

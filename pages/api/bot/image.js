@@ -1,4 +1,4 @@
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas } from 'canvas';
 
 const W = 1080;
 const PAD = 72;
@@ -124,7 +124,7 @@ export default async function handler(req, res) {
   const right = 'Partido Missão · Brasil 2026';
   ctx.fillText(right, W - PAD - ctx.measureText(right).width, H - FOOTER_H + 44);
 
-  const buffer = await canvas.encode('jpeg', 92);
+  const buffer = canvas.toBuffer('image/jpeg', { quality: 0.92 });
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('Content-Length', buffer.length);
   return res.status(200).send(buffer);
