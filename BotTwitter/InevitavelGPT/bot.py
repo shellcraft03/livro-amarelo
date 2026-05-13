@@ -242,5 +242,5 @@ def buscar_e_responder():
         new_max_id = _max_id(tweet_id, new_max_id)
 
     if new_max_id:
-        _save_last_id(new_max_id)
+        _save_last_id(str(int(new_max_id) + 1))
     _save_processed(processed)
