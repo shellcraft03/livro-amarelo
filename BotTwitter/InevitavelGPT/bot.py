@@ -132,6 +132,7 @@ def _parse_tweet(tweet_text):
     stripped = _strip_accents(tweet_text)
     m = _GPT_KEYWORD_RE.search(stripped)
     text = (tweet_text[:m.start()] + tweet_text[m.end():]).strip() if m else tweet_text.strip()
+    text = re.sub(r'@\w+\s*', '', text).strip()
 
     if _LIVRO_RE.search(text):
         return text, 'livro'
