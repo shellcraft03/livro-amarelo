@@ -168,10 +168,10 @@ def buscar_e_responder():
     last_id   = _read_last_id()
     processed = _read_processed()
 
-    query = f'from:{INEVITAVEL_BOT_HANDLE}'
+    query = f'from:{INEVITAVEL_BOT_HANDLE} ("livro amarelo" OR "renan santos")'
 
     try:
-        data = _search_recent(query, max_results=30, since_id=last_id)
+        data = _search_recent(query, max_results=10, since_id=last_id)
     except requests.HTTPError as exc:
         logging.error('Twitter search failed: %s %s', exc.response.status_code, exc.response.text[:200])
         return
