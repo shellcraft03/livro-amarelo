@@ -1,4 +1,11 @@
-import { createCanvas } from 'canvas';
+import { createCanvas, registerFont } from 'canvas';
+import { join, resolve } from 'path';
+
+const FONTS = resolve('public', 'fonts');
+registerFont(join(FONTS, 'Inter-Regular.ttf'),    { family: 'Arial' });
+registerFont(join(FONTS, 'Inter-Bold.ttf'),        { family: 'Arial', weight: 'bold' });
+registerFont(join(FONTS, 'Inter-Italic.ttf'),      { family: 'Arial', style: 'italic' });
+registerFont(join(FONTS, 'Inter-BoldItalic.ttf'),  { family: 'Arial', weight: 'bold', style: 'italic' });
 
 const W = 1080;
 const PAD = 72;
