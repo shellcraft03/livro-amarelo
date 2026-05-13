@@ -56,7 +56,7 @@ export default async function handler(req, res) {
 
   const answer = type === 'entrevistas' ? stripCitations(rawAnswer) : rawAnswer;
   const title = type === 'livro' ? 'O LIVRO AMARELO' : 'RENAN RESPONDE';
-  const subtitle = type === 'livro' ? 'O Futuro é Glorioso' : 'Com Renan Santos';
+  const subtitle = type === 'livro' ? 'O Futuro é Glorioso' : 'Entrevistas indexadas';
 
   const tmp = createCanvas(W, 100);
   const mCtx = tmp.getContext('2d');
