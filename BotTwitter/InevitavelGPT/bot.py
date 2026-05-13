@@ -108,7 +108,7 @@ def _upload_media(image_bytes):
 
 def _create_reply(media_id, reply_to_id):
     payload = {
-        'text':  'Faça perguntas, cheque as fontes.\nVisite: https://www.inevitavelgpt.com/',
+        'text':  'Faça perguntas, verifique as fontes.\nVisite: https://www.inevitavelgpt.com/',
         'media': {'media_ids': [media_id]},
         'reply': {'in_reply_to_tweet_id': reply_to_id},
     }
@@ -195,6 +195,7 @@ def buscar_e_responder():
         tweet_id = str(tweet['id'])
 
         if tweet_id in processed:
+            logging.info('Already processed tweet %s, skipping', tweet_id)
             continue
 
         author_handle = users_by_id.get(str(tweet['author_id']), '').lower()
