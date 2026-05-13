@@ -131,7 +131,8 @@ livro-amarelo/
     ├── Procfile                     # worker: python main.py
     ├── runtime.txt                  # python-3.11
     ├── requirements.txt
-    ├── main.py                      # loop principal: chama buscar_e_responder() a cada 300s
+    ├── main.py                      # loop principal do worker
+    ├── run-local-worker.bat          # carrega .env local e executa o worker no Windows
     └── InevitavelGPT/
         ├── bot.py                   # busca tweets, parseia pergunta, aciona API, posta reply
         └── ImageGenerator.py        # chama POST /api/bot/image na Vercel → retorna JPEG
@@ -314,7 +315,11 @@ Usuário
 
 ## Bot Twitter — @Inevitavel_Bot
 
-O diretório `BotTwitter/` contém um **worker Python** implantado no **Railway** que monitora o perfil `@Inevitavel_Bot` a cada 5 minutos. Sempre que o próprio perfil postar um tweet contendo "livro amarelo" ou "renan santos", o bot gera uma resposta via RAG e responde ao tweet com uma imagem formatada.
+O diretório `BotTwitter/` contém um **worker Python** implantado no **Railway** que monitora o perfil `@Inevitavel_Bot` periodicamente. O intervalo padrão é 1 minuto localmente e 5 minutos no Railway. Sempre que o próprio perfil postar um tweet contendo "livro amarelo" ou "renan santos", o bot gera uma resposta via RAG e responde ao tweet com uma imagem formatada.
+
+O worker persiste o estado em `STATE_DIR` usando `last_tweet_created_at.txt`, `processed_ids.json` e `retry_tweets.json`. Falhas de resposta entram na fila de retry e só saem dela depois de um reply bem-sucedido. O cursor de busca usa `start_time` com o timestamp do tweet mais recente respondido com sucesso, respeitando `DEFAULT_MIN_TWEET_CREATED_AT` como piso opcional; a deduplicação continua sendo feita por `processed_ids.json`.
+
+Para teste local no Windows, configure `BotTwitter/InevitavelGPT/.env` e execute `BotTwitter/run-local-worker.bat`. O script carrega o `.env`, define `STATE_DIR` para `BotTwitter/.local-state/` e inicia `python main.py`.
 
 ### Como funciona
 
@@ -322,7 +327,7 @@ O diretório `BotTwitter/` contém um **worker Python** implantado no **Railway*
 @Inevitavel_Bot posta tweet com "livro amarelo" ou "renan santos"
   │
   ▼
-Worker Railway (main.py — loop de 300s)
+Worker Railway/local (main.py — loop periódico)
   │ GET /2/tweets/search/recent — filtra por handle + termos no lado do Twitter
   │
   ├─ Nenhum tweet novo → aguarda próximo ciclo
@@ -342,7 +347,8 @@ POST /1.1/media/upload.json → POST /2/tweets (reply ao tweet original)
   │
   ▼
 tweet_id registrado em processed_ids.json (STATE_DIR)
-falhas não registram o ID → serão reprocessadas no próximo ciclo
+created_at do tweet respondido registrado em last_tweet_created_at.txt (STATE_DIR)
+falhas entram em retry_tweets.json (STATE_DIR) → serão reprocessadas no próximo ciclo
 ```
 
 ### Deploy no Railway
@@ -365,6 +371,8 @@ falhas não registram o ID → serão reprocessadas no próximo ciclo
 | `INEVITAVEL_BOT_HANDLE` | Handle sem `@` (ex.: `Inevitavel_Bot`) |
 | `INEVITAVEL_GPT_KEYWORD` | Palavra-chave de acionamento digitada no tweet (ex.: `InevitavelGPT`) |
 | `STATE_DIR` | Caminho do volume de persistência (ex.: `/data`) |
+| `DEFAULT_MIN_TWEET_CREATED_AT` | Timestamp mínimo opcional em UTC/RFC3339 para não processar tweets antigos (ex.: `2026-05-13T22:30:00Z`) |
+| `BOT_INTERVAL_SECONDS` | Intervalo opcional em segundos para sobrescrever o padrão: local `60`, Railway `300` |
 
 > `BOT_API_SECRET` também deve estar definido nas variáveis de ambiente da **Vercel** — ele protege tanto `/api/bot/answer` quanto `/api/bot/image`.
 

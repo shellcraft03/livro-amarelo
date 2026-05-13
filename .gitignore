@@ -18,3 +18,5 @@ scripts/test_vercel_image.mjs
 BotTwitter/**/.env
 BotTwitter/**/.venv/
 BotTwitter/.local-state/
+BotTwitter/twitter-worker-and-x-api-notes.md
+BotTwitter/x-api-*.md
