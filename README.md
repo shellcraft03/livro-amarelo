@@ -317,7 +317,7 @@ Usuário
 
 O diretório `BotTwitter/` contém um **worker Python** implantado no **Railway** que monitora o perfil `@Inevitavel_Bot` periodicamente. O intervalo padrão é 1 minuto localmente e 5 minutos no Railway. Sempre que o próprio perfil postar um tweet contendo "livro amarelo" ou "renan santos", o bot gera uma resposta via RAG e responde ao tweet com uma imagem formatada.
 
-O worker persiste o estado em `STATE_DIR` usando `last_tweet_created_at.txt`, `processed_ids.json` e `retry_tweets.json`. Falhas de resposta entram na fila de retry e só saem dela depois de um reply bem-sucedido. O cursor de busca usa `start_time` com o timestamp do tweet mais recente respondido com sucesso, respeitando `DEFAULT_MIN_TWEET_CREATED_AT` como piso opcional; a deduplicação continua sendo feita por `processed_ids.json`.
+O worker persiste o estado em `STATE_DIR` usando `last_tweet_created_at.txt`, `processed_ids.json` e `retry_tweets.json`. Falhas de resposta entram na fila de retry e só saem dela depois de um reply bem-sucedido. O cursor de busca usa `start_time` com o timestamp do tweet mais recente respondido com sucesso, respeitando `DEFAULT_MIN_TWEET_CREATED_AT` como piso opcional e nunca buscando antes dos últimos 3 dias; a deduplicação continua sendo feita por `processed_ids.json`.
 
 Para teste local no Windows, configure `BotTwitter/InevitavelGPT/.env` e execute `BotTwitter/run-local-worker.bat`. O script carrega o `.env`, define `STATE_DIR` para `BotTwitter/.local-state/` e inicia `python main.py`.
 
@@ -371,7 +371,7 @@ falhas entram em retry_tweets.json (STATE_DIR) → serão reprocessadas no próx
 | `INEVITAVEL_BOT_HANDLE` | Handle sem `@` (ex.: `Inevitavel_Bot`) |
 | `INEVITAVEL_GPT_KEYWORD` | Palavra-chave de acionamento digitada no tweet (ex.: `InevitavelGPT`) |
 | `STATE_DIR` | Caminho do volume de persistência (ex.: `/data`) |
-| `DEFAULT_MIN_TWEET_CREATED_AT` | Timestamp mínimo opcional em UTC/RFC3339 para não processar tweets antigos (ex.: `2026-05-13T22:30:00Z`) |
+| `DEFAULT_MIN_TWEET_CREATED_AT` | Timestamp mínimo opcional em UTC/RFC3339 para não processar tweets antigos (ex.: `2026-05-13T22:30:00Z`); o worker também limita a busca aos últimos 3 dias |
 | `BOT_INTERVAL_SECONDS` | Intervalo opcional em segundos para sobrescrever o padrão: local `60`, Railway `300` |
 
 > `BOT_API_SECRET` também deve estar definido nas variáveis de ambiente da **Vercel** — ele protege tanto `/api/bot/answer` quanto `/api/bot/image`.

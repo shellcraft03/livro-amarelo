@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 from requests_oauthlib import OAuth1
@@ -21,6 +21,7 @@ STATE_DIR           = os.environ.get('STATE_DIR', '/tmp')
 LAST_CREATED_AT_FILE = os.path.join(STATE_DIR, 'last_tweet_created_at.txt')
 PROCESSED_IDS_FILE  = os.path.join(STATE_DIR, 'processed_ids.json')
 RETRY_QUEUE_FILE    = os.path.join(STATE_DIR, 'retry_tweets.json')
+MIN_SEARCH_LOOKBACK_DAYS = 3
 
 _LIVRO_RE = re.compile(r'livro\s+amarelo', re.IGNORECASE)
 _RENAN_RE = re.compile(r'renan\s+santos',  re.IGNORECASE)
@@ -90,10 +91,25 @@ def _save_last_created_at_if_newer(created_at):
         _save_last_created_at(created_at)
 
 
+def _format_created_at(dt):
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
+
+
+def _min_allowed_start_time():
+    return _format_created_at(datetime.now(timezone.utc) - timedelta(days=MIN_SEARCH_LOOKBACK_DAYS))
+
+
 def _effective_start_time(last_created_at, min_created_at):
-    if _is_created_at_newer(last_created_at, min_created_at):
-        return last_created_at
-    return min_created_at
+    start_time = last_created_at if _is_created_at_newer(last_created_at, min_created_at) else min_created_at
+    min_allowed = _min_allowed_start_time()
+    if _is_created_at_newer(min_allowed, start_time):
+        logging.info(
+            'Using minimum allowed start_time=%s because configured cursor is older than %s days',
+            min_allowed,
+            MIN_SEARCH_LOOKBACK_DAYS,
+        )
+        return min_allowed
+    return start_time
 
 
 def _read_processed():
