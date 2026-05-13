@@ -17,3 +17,4 @@ scripts/test_vercel_image.mjs
 .vscode/
 BotTwitter/**/.env
 BotTwitter/**/.venv/
+BotTwitter/.local-state/
