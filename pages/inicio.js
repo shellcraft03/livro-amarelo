@@ -292,6 +292,12 @@ export default function QA() {
 
           <div style={s.inputCard}>
             <label style={s.inputLabel}>Faça uma pergunta sobre os temas tratados no Livro Amarelo</label>
+            <div style={s.dataNotice}>
+              <span style={s.dataNoticeLabel}>Aviso</span>
+              <p style={s.dataNoticeText}>
+                A versão final do Livro Amarelo ainda não foi publicada. Por enquanto, a base de dados usa o plano de governo do Arthur para a prefeitura. Somente para fins de testes.
+              </p>
+            </div>
             <div className="input-row" style={s.inputRow}>
               <input
                 ref={inputRef}
@@ -430,6 +436,32 @@ function getStyles(dark) {
       textTransform: 'uppercase',
       letterSpacing: '0.06em',
       marginBottom: '12px',
+    },
+    dataNotice: {
+      background: dark ? '#201C12' : '#FFF7E0',
+      border: `2px solid ${dark ? '#5A4515' : '#FCBF22'}`,
+      borderRadius: '8px',
+      padding: '12px 14px',
+      marginBottom: '14px',
+    },
+    dataNoticeLabel: {
+      fontSize: '0.65rem',
+      fontWeight: 800,
+      color: dark ? '#000000' : '#000000',
+      background: '#FCBF22',
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      display: 'inline-block',
+      padding: '2px 7px',
+      borderRadius: '4px',
+      marginBottom: '8px',
+    },
+    dataNoticeText: {
+      color: text2,
+      fontSize: '0.88rem',
+      lineHeight: 1.5,
+      fontWeight: 600,
+      margin: 0,
     },
     inputRow: {},
     input: {
