@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import unicodedata
+from datetime import datetime, timezone
 
 import requests
 from requests_oauthlib import OAuth1
@@ -17,7 +18,7 @@ BOT_API_SECRET         = os.environ['BOT_API_SECRET']
 
 # Railway: monte um volume em /data e defina STATE_DIR=/data para persistência
 STATE_DIR           = os.environ.get('STATE_DIR', '/tmp')
-LAST_ID_FILE        = os.path.join(STATE_DIR, 'last_tweet_id.txt')
+LAST_CREATED_AT_FILE = os.path.join(STATE_DIR, 'last_tweet_created_at.txt')
 PROCESSED_IDS_FILE  = os.path.join(STATE_DIR, 'processed_ids.json')
 RETRY_QUEUE_FILE    = os.path.join(STATE_DIR, 'retry_tweets.json')
 
@@ -36,38 +37,63 @@ _GPT_KEYWORD_RE = re.compile(
 
 # ── Estado local ──────────────────────────────────────────────────────────────
 
-def _read_last_id():
+def _read_last_created_at():
     try:
-        return open(LAST_ID_FILE).read().strip() or None
+        return open(LAST_CREATED_AT_FILE).read().strip() or None
     except FileNotFoundError:
         return None
 
 
-def _save_last_id(tweet_id):
+def _save_last_created_at(created_at):
     os.makedirs(STATE_DIR, exist_ok=True)
-    open(LAST_ID_FILE, 'w').write(str(tweet_id))
+    open(LAST_CREATED_AT_FILE, 'w').write(str(created_at))
 
 
-def _read_default_min_since_id():
-    min_since_id = os.environ.get('DEFAULT_MIN_SINCE_ID', '').strip()
-    if not min_since_id:
+def _parse_created_at(created_at):
+    if not created_at:
         return None
-
     try:
-        int(min_since_id)
+        normalized = created_at.replace('Z', '+00:00')
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
     except ValueError:
-        logging.warning('Ignoring invalid DEFAULT_MIN_SINCE_ID env var: %s', min_since_id)
+        logging.warning('Ignoring invalid tweet created_at: %s', created_at)
         return None
 
-    return min_since_id
+
+def _read_default_min_created_at():
+    created_at = os.environ.get('DEFAULT_MIN_TWEET_CREATED_AT', '').strip()
+    if not created_at:
+        return None
+    if not _parse_created_at(created_at):
+        logging.warning('Ignoring invalid DEFAULT_MIN_TWEET_CREATED_AT env var: %s', created_at)
+        return None
+    return created_at
 
 
-def _effective_since_id(last_id, min_since_id):
-    if not min_since_id:
-        return last_id
-    if not last_id:
-        return min_since_id
-    return _max_id(min_since_id, last_id)
+def _is_created_at_newer(candidate, current):
+    candidate_dt = _parse_created_at(candidate)
+    if not candidate_dt:
+        return False
+    current_dt = _parse_created_at(current)
+    return current_dt is None or candidate_dt > current_dt
+
+
+def _save_last_created_at_if_newer(created_at):
+    if not created_at:
+        return
+    current = _read_last_created_at()
+    if _is_created_at_newer(created_at, current):
+        logging.info('Saving last_tweet_created_at=%s', created_at)
+        _save_last_created_at(created_at)
+
+
+def _effective_start_time(last_created_at, min_created_at):
+    if _is_created_at_newer(last_created_at, min_created_at):
+        return last_created_at
+    return min_created_at
 
 
 def _read_processed():
@@ -130,23 +156,29 @@ def _oauth1():
     )
 
 
-def _filter_tweets_newer_than_since_id(tweets, since_id):
-    if not since_id:
+def _filter_tweets_newer_than_created_at(tweets, last_created_at):
+    if not last_created_at:
         return tweets
 
-    try:
-        since_int = int(since_id)
-    except ValueError:
+    if not _parse_created_at(last_created_at):
         return tweets
 
-    newer_tweets = [tweet for tweet in tweets if int(tweet['id']) > since_int]
+    newer_tweets = [
+        tweet
+        for tweet in tweets
+        if _is_created_at_newer(tweet.get('created_at'), last_created_at)
+    ]
     skipped_count = len(tweets) - len(newer_tweets)
     if skipped_count:
-        logging.info('Ignored %s tweet(s) returned at or before since_id=%s', skipped_count, since_id)
+        logging.info(
+            'Ignored %s tweet(s) returned at or before last_tweet_created_at=%s',
+            skipped_count,
+            last_created_at,
+        )
     return newer_tweets
 
 
-def _search_recent(query, max_results=30, since_id=None):
+def _search_recent(query, max_results=30, start_time=None):
     params = {
         'query':        query,
         'max_results':  max_results,
@@ -154,12 +186,12 @@ def _search_recent(query, max_results=30, since_id=None):
         'expansions':   'author_id',
         'user.fields':  'username',
     }
-    if since_id:
-        params['since_id'] = since_id
+    if start_time:
+        params['start_time'] = start_time
 
     logging.info(
-        'Twitter API request: search_recent since_id=%s max_results=%s',
-        since_id,
+        'Twitter API request: search_recent start_time=%s max_results=%s',
+        start_time,
         max_results,
     )
     r = requests.get(
@@ -181,7 +213,7 @@ def _upload_media(image_bytes):
         files={'media': ('reply.jpg', image_bytes, 'image/jpeg')},
         timeout=60,
     )
-    logging.info('Twitter API response: upload_media status=%s body=%s', r.status_code, r.text[:500])
+    logging.info('Twitter API response: upload_media status=%s', r.status_code)
     r.raise_for_status()
     return r.json()['media_id_string']
 
@@ -242,10 +274,6 @@ def _call_bot_api(question, qtype):
 
 # ── Orquestração principal ────────────────────────────────────────────────────
 
-def _max_id(a, b):
-    return a if (b is None or int(a) > int(b)) else b
-
-
 def _answer_and_reply(tweet_id, question, qtype):
     answer = _call_bot_api(question, qtype)
     if not answer:
@@ -273,19 +301,15 @@ def _answer_and_reply(tweet_id, question, qtype):
 
 
 def buscar_e_responder():
-    last_id   = _read_last_id()
-    min_since_id = _read_default_min_since_id()
-    since_id = _effective_since_id(last_id, min_since_id)
+    last_created_at = _read_last_created_at()
+    min_created_at = _read_default_min_created_at()
+    start_time = _effective_start_time(last_created_at, min_created_at)
     processed = _read_processed()
     retry_queue = _read_retry_queue()
 
     for tweet_id, retry_item in sorted(retry_queue.items(), key=lambda item: int(item[0])):
         if tweet_id in processed:
             logging.info('Retry tweet %s already processed, removing from queue', tweet_id)
-            retry_queue.pop(tweet_id, None)
-            continue
-        if min_since_id and int(tweet_id) <= int(min_since_id):
-            logging.info('Retry tweet %s is before DEFAULT_MIN_SINCE_ID, removing from queue', tweet_id)
             retry_queue.pop(tweet_id, None)
             continue
 
@@ -302,11 +326,12 @@ def buscar_e_responder():
 
         processed.add(tweet_id)
         retry_queue.pop(tweet_id, None)
+        _save_last_created_at_if_newer(retry_item.get('created_at'))
 
     query = f'from:{INEVITAVEL_BOT_HANDLE} ("livro amarelo" OR "renan santos")'
 
     try:
-        data = _search_recent(query, max_results=10, since_id=since_id)
+        data = _search_recent(query, max_results=10, start_time=start_time)
     except requests.HTTPError as exc:
         logging.error('Twitter search failed: %s %s', exc.response.status_code, exc.response.text[:200])
         _save_processed(processed)
@@ -318,36 +343,33 @@ def buscar_e_responder():
         _save_retry_queue(retry_queue)
         return
 
-    tweets = _filter_tweets_newer_than_since_id(data.get('data') or [], since_id)
+    tweets = _filter_tweets_newer_than_created_at(data.get('data') or [], start_time)
     if not tweets:
         logging.info('No new tweets')
         _save_processed(processed)
         _save_retry_queue(retry_queue)
         return
+    tweets = sorted(
+        tweets,
+        key=lambda tweet: _parse_created_at(tweet.get('created_at')) or datetime.min.replace(tzinfo=timezone.utc),
+    )
 
     users_by_id = {
         str(u['id']): u['username'].lower()
         for u in (data.get('includes') or {}).get('users', [])
     }
 
-    new_max_id = None
-    already_processed_max = None
-    saw_new_tweet = False
-
     for tweet in tweets:
         tweet_id = str(tweet['id'])
+        created_at = tweet.get('created_at')
 
         if tweet_id in processed:
             logging.info('Already processed tweet %s, skipping', tweet_id)
-            already_processed_max = _max_id(tweet_id, already_processed_max)
             continue
-
-        saw_new_tweet = True
 
         author_handle = users_by_id.get(str(tweet['author_id']), '').lower()
         if author_handle != INEVITAVEL_BOT_HANDLE.lower():
             logging.info('Skipping tweet %s from @%s', tweet_id, author_handle)
-            new_max_id = _max_id(tweet_id, new_max_id)
             continue
 
         logging.info('Processing tweet %s: %s', tweet_id, tweet['text'][:80])
@@ -355,25 +377,22 @@ def buscar_e_responder():
         question, qtype = _parse_tweet(tweet['text'])
         if not question:
             logging.info('No matching pattern in tweet %s', tweet_id)
-            new_max_id = _max_id(tweet_id, new_max_id)
             continue
 
         logging.info('Question (%s): %s', qtype, question[:80])
 
         if not _answer_and_reply(tweet_id, question, qtype):
-            retry_queue[tweet_id] = {'id': tweet_id, 'question': question, 'type': qtype}
-            new_max_id = _max_id(tweet_id, new_max_id)
+            retry_queue[tweet_id] = {
+                'id': tweet_id,
+                'question': question,
+                'type': qtype,
+                'created_at': created_at,
+            }
             continue
 
         processed.add(tweet_id)
         retry_queue.pop(tweet_id, None)
-        new_max_id = _max_id(tweet_id, new_max_id)
+        _save_last_created_at_if_newer(created_at)
 
-    # Anti-loop: if the entire batch was already-processed (no new tweets), advance cursor
-    if not saw_new_tweet and already_processed_max:
-        new_max_id = already_processed_max
-
-    if new_max_id:
-        _save_last_id(str(int(new_max_id) + 1))
     _save_processed(processed)
     _save_retry_queue(retry_queue)
