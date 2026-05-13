@@ -190,19 +190,22 @@ def buscar_e_responder():
     }
 
     new_max_id = None
+    already_processed_max = None
+    saw_new_tweet = False
 
     for tweet in tweets:
         tweet_id = str(tweet['id'])
 
         if tweet_id in processed:
             logging.info('Already processed tweet %s, skipping', tweet_id)
-            new_max_id = _max_id(tweet_id, new_max_id)
+            already_processed_max = _max_id(tweet_id, already_processed_max)
             continue
+
+        saw_new_tweet = True
 
         author_handle = users_by_id.get(str(tweet['author_id']), '').lower()
         if author_handle != INEVITAVEL_BOT_HANDLE.lower():
             logging.info('Skipping tweet %s from @%s', tweet_id, author_handle)
-            processed.add(tweet_id)
             new_max_id = _max_id(tweet_id, new_max_id)
             continue
 
@@ -211,7 +214,6 @@ def buscar_e_responder():
         question, qtype = _parse_tweet(tweet['text'])
         if not question:
             logging.info('No matching pattern in tweet %s', tweet_id)
-            processed.add(tweet_id)
             new_max_id = _max_id(tweet_id, new_max_id)
             continue
 
@@ -241,6 +243,10 @@ def buscar_e_responder():
 
         processed.add(tweet_id)
         new_max_id = _max_id(tweet_id, new_max_id)
+
+    # Anti-loop: if the entire batch was already-processed (no new tweets), advance cursor
+    if not saw_new_tweet and already_processed_max:
+        new_max_id = already_processed_max
 
     if new_max_id:
         _save_last_id(str(int(new_max_id) + 1))
