@@ -61,6 +61,8 @@ Esta aplicação web permite explorar o conteúdo do Livro Amarelo e as entrevis
 | Analytics | Google Analytics 4 |
 | PDF parsing | pdf-parse |
 | Automação de dados | GitHub Actions (cron semanal + disparo manual) |
+| Geração de imagens (bot) | canvas (node-canvas) · Inter TTF bundled em `public/fonts/` |
+| Bot Twitter | Python 3.11 · Railway (worker) · Twitter API v2 |
 
 ---
 
@@ -88,7 +90,10 @@ livro-amarelo/
 │       ├── session.js               # GET verifica sessão · POST cria cookie de sessão via Turnstile
 │       ├── videos.js                # GET lista indexadas · POST submissão de sugestão
 │       ├── deputados.js             # Deputados (Neon + join com filiados)
-│       └── filiados.js              # Filiados (Neon Postgres)
+│       ├── filiados.js              # Filiados (Neon Postgres)
+│       └── bot/
+│           ├── answer.js            # RAG para o bot — retorna { answer, question, type } (X-Bot-Secret)
+│           └── image.js             # Gera JPEG 1080px com node-canvas + Inter TTF (X-Bot-Secret)
 ├── hooks/
 │   ├── useTurnstile.js              # Hook React para o widget Turnstile
 │   └── useSessionGate.js            # Hook React para verificar sessão via cookie e redirecionar se inválida
@@ -115,8 +120,21 @@ livro-amarelo/
 │   └── migrate_to_pinecone.mjs      # Migrar vetores do store.json para o Pinecone
 ├── styles/
 │   └── globals.css                  # Paleta de cores, reset e classes responsivas
-└── public/
-    └── cover.png                    # Ilustração da capa
+├── public/
+│   ├── cover.png                    # Ilustração da capa
+│   └── fonts/                       # Inter TTF bundled para geração de imagem no servidor
+│       ├── Inter-Regular.ttf
+│       ├── Inter-Bold.ttf
+│       ├── Inter-Italic.ttf
+│       └── Inter-BoldItalic.ttf
+└── BotTwitter/                      # Worker Python — bot @Inevitavel_Bot (Railway)
+    ├── Procfile                     # worker: python main.py
+    ├── runtime.txt                  # python-3.11
+    ├── requirements.txt
+    ├── main.py                      # loop principal: chama buscar_e_responder() a cada 300s
+    └── InevitavelGPT/
+        ├── bot.py                   # busca tweets, parseia pergunta, aciona API, posta reply
+        └── ImageGenerator.py        # chama POST /api/bot/image na Vercel → retorna JPEG
 ```
 
 ---
@@ -170,6 +188,9 @@ APP_SESSION_SECRET=...
 
 # Canais do YouTube bloqueados na curadoria (termos separados por ";")
 BLOCKED_YOUTUBE_CHANNEL_NAMES=...
+
+# Bot Twitter — protege /api/bot/answer e /api/bot/image
+BOT_API_SECRET=...
 ```
 
 > **Pinecone:** o projeto usa dois índices. `PINECONE_INDEX_LIVRO`: dimensão **3072**, compatível com `text-embedding-3-large`, namespace `livro-amarelo-v2` (Livro Amarelo). `PINECONE_INDEX_ENTREVISTAS`: dimensão **3072**, compatível com `text-embedding-3-large`, namespace `entrevistas` (YouTube).
@@ -288,6 +309,64 @@ Usuário
 │  Deputados: API Câmara → Neon             │
 └───────────────────────────────────────────┘
 ```
+
+---
+
+## Bot Twitter — @Inevitavel_Bot
+
+O diretório `BotTwitter/` contém um **worker Python** implantado no **Railway** que monitora o perfil `@Inevitavel_Bot` a cada 5 minutos. Sempre que o próprio perfil postar um tweet contendo "livro amarelo" ou "renan santos", o bot gera uma resposta via RAG e responde ao tweet com uma imagem formatada.
+
+### Como funciona
+
+```
+@Inevitavel_Bot posta tweet com "livro amarelo" ou "renan santos"
+  │
+  ▼
+Worker Railway (main.py — loop de 300s)
+  │ GET /2/tweets/search/recent — filtra por handle + termos no lado do Twitter
+  │
+  ├─ Nenhum tweet novo → aguarda próximo ciclo
+  │
+  ▼
+bot.py — buscar_e_responder()
+  │ _parse_tweet(): remove keyword e @mentions → extrai pergunta + tipo (livro | entrevistas)
+  │
+  ▼
+POST /api/bot/answer  (Vercel · X-Bot-Secret)
+  │ RAG idêntico ao chat da web
+  ▼
+POST /api/bot/image   (Vercel · X-Bot-Secret)
+  │ node-canvas + Inter TTF bundled → JPEG 1080px
+  ▼
+POST /1.1/media/upload.json → POST /2/tweets (reply ao tweet original)
+  │
+  ▼
+tweet_id registrado em processed_ids.json (STATE_DIR)
+falhas não registram o ID → serão reprocessadas no próximo ciclo
+```
+
+### Deploy no Railway
+
+1. Conecte o repositório ao Railway e aponte o **root directory** para `BotTwitter/`.
+2. Monte um volume em `/data` e defina `STATE_DIR=/data` para persistir estado entre restarts.
+3. Configure as variáveis de ambiente abaixo no painel do Railway.
+
+### Variáveis de ambiente — Railway
+
+| Variável | Descrição |
+|---|---|
+| `BEARER_TOKEN` | Twitter Bearer Token (leitura de tweets) |
+| `CONSUMER_KEY` | Twitter OAuth 1.0a Consumer Key |
+| `CONSUMER_SECRET` | Twitter OAuth 1.0a Consumer Secret |
+| `ACESS_TOKEN` | Twitter OAuth 1.0a Access Token |
+| `ACESS_TOKEN_SECRET` | Twitter OAuth 1.0a Access Token Secret |
+| `BOT_API_URL` | URL de `/api/bot/answer` na Vercel (ex.: `https://www.inevitavelgpt.com/api/bot/answer`) |
+| `BOT_API_SECRET` | Mesmo valor de `BOT_API_SECRET` configurado na Vercel |
+| `INEVITAVEL_BOT_HANDLE` | Handle sem `@` (ex.: `Inevitavel_Bot`) |
+| `INEVITAVEL_GPT_KEYWORD` | Palavra-chave de acionamento digitada no tweet (ex.: `InevitavelGPT`) |
+| `STATE_DIR` | Caminho do volume de persistência (ex.: `/data`) |
+
+> `BOT_API_SECRET` também deve estar definido nas variáveis de ambiente da **Vercel** — ele protege tanto `/api/bot/answer` quanto `/api/bot/image`.
 
 ---
 
