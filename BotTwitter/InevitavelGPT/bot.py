@@ -108,7 +108,7 @@ def _upload_media(image_bytes):
 
 def _create_reply(media_id, reply_to_id):
     payload = {
-        'text':  'https://www.inevitavelgpt.com/',
+        'text':  'Faça perguntas, cheque as fontes.\nVisite: https://www.inevitavelgpt.com/',
         'media': {'media_ids': [media_id]},
         'reply': {'in_reply_to_tweet_id': reply_to_id},
     }
