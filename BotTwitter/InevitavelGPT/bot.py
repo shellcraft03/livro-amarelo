@@ -196,6 +196,7 @@ def buscar_e_responder():
 
         if tweet_id in processed:
             logging.info('Already processed tweet %s, skipping', tweet_id)
+            new_max_id = _max_id(tweet_id, new_max_id)
             continue
 
         author_handle = users_by_id.get(str(tweet['author_id']), '').lower()
