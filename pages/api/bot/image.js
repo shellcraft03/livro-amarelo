@@ -128,7 +128,7 @@ export default async function handler(req, res) {
   ctx.fillText('Inevitável GPT', PAD, H - FOOTER_H + 44);
   ctx.fillStyle = '#666666';
   ctx.font = '400 16px Arial, sans-serif';
-  const right = 'Partido Missão · Brasil 2026';
+  const right = 'Brasil 2026';
   ctx.fillText(right, W - PAD - ctx.measureText(right).width, H - FOOTER_H + 44);
 
   const buffer = canvas.toBuffer('image/jpeg', { quality: 0.92 });
