@@ -317,7 +317,7 @@ User
 
 The `BotTwitter/` directory contains a **Python worker** deployed on **Railway** that periodically monitors the `@Inevitavel_Bot` profile. The default interval is 1 minute locally and 5 minutes on Railway. Whenever the profile itself posts a tweet containing "livro amarelo" or "renan santos", the bot generates a RAG-based answer and replies with a formatted image.
 
-The worker persists state in `STATE_DIR` using `last_tweet_created_at.txt`, `processed_ids.json`, and `retry_tweets.json`. Failed replies are kept in the retry queue and are removed only after a successful reply. The search cursor uses `start_time` with the timestamp of the most recent tweet successfully replied to, respecting `DEFAULT_MIN_TWEET_CREATED_AT` as an optional floor and never searching before the last 3 days; deduplication is still handled by `processed_ids.json`.
+The worker persists state in `STATE_DIR` using `last_tweet_created_at.txt`, `processed_ids.json`, and `retry_tweets.json`. Failed replies are kept in the retry queue and are removed only after a successful reply. The timeline cursor uses `start_time` with the timestamp of the most recent tweet already seen by the worker, respecting `DEFAULT_MIN_TWEET_CREATED_AT` as an optional floor and never searching before the last 3 days; deduplication is still handled by `processed_ids.json`.
 
 For local testing on Windows, configure `BotTwitter/InevitavelGPT/.env` and run `BotTwitter/run-local-worker.bat`. The script loads the `.env`, sets `STATE_DIR` to `BotTwitter/.local-state/`, and starts `python main.py`.
 
@@ -328,7 +328,8 @@ For local testing on Windows, configure `BotTwitter/InevitavelGPT/.env` and run 
   │
   ▼
 Railway/local worker (main.py — periodic loop)
-  │ GET /2/tweets/search/recent — keyword filter applied server-side by Twitter
+  │ GET /2/users/by/username/:username → resolve the user id
+  │ GET /2/users/:id/tweets — read the profile timeline
   │
   ├─ No new tweets → wait for next cycle
   │
@@ -348,6 +349,7 @@ POST /1.1/media/upload.json → POST /2/tweets (reply to original tweet)
   ▼
 tweet_id saved to processed_ids.json (STATE_DIR)
 replied tweet created_at saved to last_tweet_created_at.txt (STATE_DIR)
+non-trigger tweet created_at also advances the local cursor
 failures are saved to retry_tweets.json (STATE_DIR) → retried on next cycle
 ```
 

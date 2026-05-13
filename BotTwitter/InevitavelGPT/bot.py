@@ -21,7 +21,7 @@ STATE_DIR           = os.environ.get('STATE_DIR', '/tmp')
 LAST_CREATED_AT_FILE = os.path.join(STATE_DIR, 'last_tweet_created_at.txt')
 PROCESSED_IDS_FILE  = os.path.join(STATE_DIR, 'processed_ids.json')
 RETRY_QUEUE_FILE    = os.path.join(STATE_DIR, 'retry_tweets.json')
-MIN_SEARCH_LOOKBACK_DAYS = 3
+MIN_TIMELINE_LOOKBACK_DAYS = 3
 
 _LIVRO_RE = re.compile(r'livro\s+amarelo', re.IGNORECASE)
 _RENAN_RE = re.compile(r'renan\s+santos',  re.IGNORECASE)
@@ -96,7 +96,7 @@ def _format_created_at(dt):
 
 
 def _min_allowed_start_time():
-    return _format_created_at(datetime.now(timezone.utc) - timedelta(days=MIN_SEARCH_LOOKBACK_DAYS))
+    return _format_created_at(datetime.now(timezone.utc) - timedelta(days=MIN_TIMELINE_LOOKBACK_DAYS))
 
 
 def _effective_start_time(last_created_at, min_created_at):
@@ -106,7 +106,7 @@ def _effective_start_time(last_created_at, min_created_at):
         logging.info(
             'Using minimum allowed start_time=%s because configured cursor is older than %s days',
             min_allowed,
-            MIN_SEARCH_LOOKBACK_DAYS,
+            MIN_TIMELINE_LOOKBACK_DAYS,
         )
         return min_allowed
     return start_time
@@ -194,29 +194,40 @@ def _filter_tweets_newer_than_created_at(tweets, last_created_at):
     return newer_tweets
 
 
-def _search_recent(query, max_results=30, start_time=None):
+def _get_user_by_username(username):
+    logging.info('Twitter API request: get_user_by_username username=%s', username)
+    r = requests.get(
+        f'https://api.x.com/2/users/by/username/{username}',
+        headers=_bearer_headers(),
+        timeout=30,
+    )
+    logging.info('Twitter API response: get_user_by_username status=%s', r.status_code)
+    r.raise_for_status()
+    return r.json()['data']
+
+
+def _get_user_tweets(user_id, max_results=30, start_time=None):
     params = {
-        'query':        query,
         'max_results':  max_results,
         'tweet.fields': 'author_id,created_at,text',
-        'expansions':   'author_id',
-        'user.fields':  'username',
+        'exclude':      'retweets',
     }
     if start_time:
         params['start_time'] = start_time
 
     logging.info(
-        'Twitter API request: search_recent start_time=%s max_results=%s',
+        'Twitter API request: get_user_tweets user_id=%s start_time=%s max_results=%s',
+        user_id,
         start_time,
         max_results,
     )
     r = requests.get(
-        'https://api.x.com/2/tweets/search/recent',
+        f'https://api.x.com/2/users/{user_id}/tweets',
         headers=_bearer_headers(),
         params=params,
         timeout=30,
     )
-    logging.info('Twitter API response: search_recent status=%s', r.status_code)
+    logging.info('Twitter API response: get_user_tweets status=%s', r.status_code)
     r.raise_for_status()
     return r.json()
 
@@ -343,18 +354,19 @@ def buscar_e_responder():
         processed.add(tweet_id)
         retry_queue.pop(tweet_id, None)
         _save_last_created_at_if_newer(retry_item.get('created_at'))
-
-    query = f'from:{INEVITAVEL_BOT_HANDLE} ("livro amarelo" OR "renan santos")'
+        _save_processed(processed)
+        _save_retry_queue(retry_queue)
 
     try:
-        data = _search_recent(query, max_results=10, start_time=start_time)
+        bot_user = _get_user_by_username(INEVITAVEL_BOT_HANDLE)
+        data = _get_user_tweets(bot_user['id'], max_results=100, start_time=start_time)
     except requests.HTTPError as exc:
-        logging.error('Twitter search failed: %s %s', exc.response.status_code, exc.response.text[:200])
+        logging.error('Twitter timeline lookup failed: %s %s', exc.response.status_code, exc.response.text[:200])
         _save_processed(processed)
         _save_retry_queue(retry_queue)
         return
     except Exception as exc:
-        logging.error('Twitter search error: %s', exc)
+        logging.error('Twitter timeline lookup error: %s', exc)
         _save_processed(processed)
         _save_retry_queue(retry_queue)
         return
@@ -370,11 +382,6 @@ def buscar_e_responder():
         key=lambda tweet: _parse_created_at(tweet.get('created_at')) or datetime.min.replace(tzinfo=timezone.utc),
     )
 
-    users_by_id = {
-        str(u['id']): u['username'].lower()
-        for u in (data.get('includes') or {}).get('users', [])
-    }
-
     for tweet in tweets:
         tweet_id = str(tweet['id'])
         created_at = tweet.get('created_at')
@@ -383,16 +390,12 @@ def buscar_e_responder():
             logging.info('Already processed tweet %s, skipping', tweet_id)
             continue
 
-        author_handle = users_by_id.get(str(tweet['author_id']), '').lower()
-        if author_handle != INEVITAVEL_BOT_HANDLE.lower():
-            logging.info('Skipping tweet %s from @%s', tweet_id, author_handle)
-            continue
-
         logging.info('Processing tweet %s: %s', tweet_id, tweet['text'][:80])
 
         question, qtype = _parse_tweet(tweet['text'])
         if not question:
             logging.info('No matching pattern in tweet %s', tweet_id)
+            _save_last_created_at_if_newer(created_at)
             continue
 
         logging.info('Question (%s): %s', qtype, question[:80])
@@ -404,11 +407,14 @@ def buscar_e_responder():
                 'type': qtype,
                 'created_at': created_at,
             }
+            _save_retry_queue(retry_queue)
             continue
 
         processed.add(tweet_id)
         retry_queue.pop(tweet_id, None)
         _save_last_created_at_if_newer(created_at)
+        _save_processed(processed)
+        _save_retry_queue(retry_queue)
 
     _save_processed(processed)
     _save_retry_queue(retry_queue)
