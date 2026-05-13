@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  outputFileTracingIncludes: {
-    '/api/bot/image': ['./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*'],
-  },
-  serverExternalPackages: ['@napi-rs/canvas'],
+  serverExternalPackages: ['canvas'],
   async headers() {
     return [
       {
