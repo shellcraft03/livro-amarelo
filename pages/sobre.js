@@ -61,7 +61,7 @@ export default function Sobre() {
                 Adquirir o Livro Amarelo
               </a>
               <a
-                href="https://github.com/EliasBarbosa0/livro-amarelo"
+                href="https://github.com/shellcraft03/livro-amarelo"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={s.linkBtn}

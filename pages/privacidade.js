@@ -60,7 +60,7 @@ export default function Privacidade() {
             <Section title="Código aberto" s={s}>
               Todo o código deste site é aberto sob licença MIT.{' '}
               <a
-                href="https://github.com/EliasBarbosa0/livro-amarelo"
+                href="https://github.com/shellcraft03/livro-amarelo"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={s.linkBtn}
