@@ -279,7 +279,7 @@ export default function QA() {
   return (
     <>
       <Head>
-        <title>Livro Amarelo</title>
+        <title>O Plano</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
