@@ -71,7 +71,7 @@ export default function Header({ currentPage, dark, toggleDark, onCurrentPageCli
     <header style={s.header}>
       <div style={s.headerInner}>
         <a href="/" style={s.headerLogo}>
-          <img src="/fasciculo3.png" alt="" style={s.headerThumb} />
+          <img src="/Imagem3.png" alt="" style={s.headerThumb} />
           <div style={s.headerTextWrap}>
             <div style={s.headerTitle}>Inevitável GPT</div>
             {!isMobile && <div style={s.headerSub}>O Futuro é Glorioso</div>}

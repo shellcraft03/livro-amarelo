@@ -70,14 +70,14 @@ input, textarea {
 }
 
 /* ── Index: split layout ── */
-.split-page   { display: flex; min-height: 100vh; }
-.split-left   { flex: 1 1 55%; display: flex; align-items: center; justify-content: center; padding: 48px 40px; }
-.split-right  { flex: 1 1 45%; display: flex; align-items: center; justify-content: center; padding: 48px 40px; background: #fff; }
+.split-page   { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
+.split-left   { flex: 1 1 55%; display: flex; align-items: center; justify-content: center; padding: 24px 32px; }
+.split-right  { flex: 1 1 45%; display: flex; align-items: center; justify-content: center; padding: 24px 32px; background: #fff; }
 
 @media (max-width: 720px) {
-  .split-page  { flex-direction: column; }
-  .split-left  { min-height: auto; padding: 40px 24px 32px; }
-  .split-right { padding: 32px 24px 48px; width: 100%; }
+  .split-page  { flex-direction: column; height: auto; min-height: 100dvh; overflow: visible; }
+  .split-left  { min-height: auto; padding: 28px 20px 20px; }
+  .split-right { padding: 24px 20px 32px; width: 100%; }
 }
 
 /* ── Nav links ── */
