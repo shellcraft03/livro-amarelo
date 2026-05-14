@@ -272,12 +272,16 @@ def _strip_accents(text):
 def _parse_tweet(tweet_text):
     stripped = _strip_accents(tweet_text)
     m = _GPT_KEYWORD_RE.search(stripped)
-    text = (tweet_text[:m.start()] + tweet_text[m.end():]).strip() if m else tweet_text.strip()
-    text = re.sub(r'@\w+\s*', '', text).strip()
+    if not m:
+        return None, None
 
-    if _LIVRO_RE.search(text):
+    text = (tweet_text[:m.start()] + tweet_text[m.end():]).strip()
+    text = re.sub(r'@\w+\s*', '', text).strip()
+    normalized_text = _strip_accents(text)
+
+    if _LIVRO_RE.search(normalized_text):
         return text, 'livro'
-    if _RENAN_RE.search(text):
+    if _RENAN_RE.search(normalized_text):
         return text, 'entrevistas'
     return None, None
 
