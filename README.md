@@ -315,7 +315,7 @@ Usuário
 
 ## Bot Twitter — @Inevitavel_Bot
 
-O diretório `BotTwitter/` contém um **worker Python** implantado no **Railway** que monitora o perfil `@Inevitavel_Bot` periodicamente. O intervalo padrão é 1 minuto localmente e 5 minutos no Railway. Sempre que o próprio perfil postar um tweet contendo "livro amarelo" ou "renan santos", o bot gera uma resposta via RAG e responde ao tweet com uma imagem formatada.
+O diretório `BotTwitter/` contém um **worker Python** implantado no **Railway** que monitora o perfil `@Inevitavel_Bot` periodicamente. O intervalo padrão é 1 minuto localmente e 5 minutos no Railway. Sempre que o próprio perfil postar um tweet contendo a keyword `INEVITAVEL_GPT_KEYWORD` junto com "livro amarelo" ou "renan santos", o bot gera uma resposta via RAG e responde ao tweet com uma imagem formatada. O filtro ignora diferenças entre maiúsculas/minúsculas e acentos.
 
 O worker persiste o estado em `STATE_DIR` usando `last_tweet_created_at.txt`, `processed_ids.json` e `retry_tweets.json`. Falhas de resposta entram na fila de retry e só saem dela depois de um reply bem-sucedido. O cursor de timeline usa `start_time` com o timestamp do tweet mais recente já visto pelo worker, respeitando `DEFAULT_MIN_TWEET_CREATED_AT` como piso opcional e nunca buscando antes dos últimos 3 dias; a deduplicação continua sendo feita por `processed_ids.json`.
 
@@ -324,7 +324,7 @@ Para teste local no Windows, configure `BotTwitter/InevitavelGPT/.env` e execute
 ### Como funciona
 
 ```
-@Inevitavel_Bot posta tweet com "livro amarelo" ou "renan santos"
+@Inevitavel_Bot posta tweet com INEVITAVEL_GPT_KEYWORD + ("livro amarelo" ou "renan santos")
   │
   ▼
 Worker Railway/local (main.py — loop periódico)
@@ -335,7 +335,7 @@ Worker Railway/local (main.py — loop periódico)
   │
   ▼
 bot.py — buscar_e_responder()
-  │ _parse_tweet(): remove keyword e @mentions → extrai pergunta + tipo (livro | entrevistas)
+  │ _parse_tweet(): exige keyword + tema, remove keyword e @mentions → extrai pergunta + tipo (livro | entrevistas)
   │
   ▼
 POST /api/bot/answer  (Vercel · X-Bot-Secret)
@@ -371,7 +371,7 @@ falhas entram em retry_tweets.json (STATE_DIR) → serão reprocessadas no próx
 | `BOT_API_URL` | URL de `/api/bot/answer` na Vercel (ex.: `https://www.inevitavelgpt.com/api/bot/answer`) |
 | `BOT_API_SECRET` | Mesmo valor de `BOT_API_SECRET` configurado na Vercel |
 | `INEVITAVEL_BOT_HANDLE` | Handle sem `@` (ex.: `Inevitavel_Bot`) |
-| `INEVITAVEL_GPT_KEYWORD` | Palavra-chave de acionamento digitada no tweet (ex.: `InevitavelGPT`) |
+| `INEVITAVEL_GPT_KEYWORD` | Palavra-chave de acionamento digitada no tweet (ex.: `InevitavelGPT`); aceita variações de maiúsculas/minúsculas e acentos |
 | `STATE_DIR` | Caminho do volume de persistência (ex.: `/data`) |
 | `DEFAULT_MIN_TWEET_CREATED_AT` | Timestamp mínimo opcional em UTC/RFC3339 para não processar tweets antigos (ex.: `2026-05-13T22:30:00Z`); o worker também limita a busca aos últimos 3 dias |
 | `BOT_INTERVAL_SECONDS` | Intervalo opcional em segundos para sobrescrever o padrão: local `60`, Railway `300` |
