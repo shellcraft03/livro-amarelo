@@ -5,12 +5,12 @@ import { useDarkMode } from '../hooks/useDarkMode';
 import ShareBar from '../components/ShareBar';
 
 const FASICULOS = [
-  '/fasciculo1.png',
-  '/fasciculo2.png',
-  '/fasciculo3.png',
-  '/fasciculo4.png',
-  '/fasciculo5.png',
-  '/fasciculo6.png',
+  '/Imagem1.png',
+  '/Imagem2.png',
+  '/Imagem3.png',
+  '/Imagem4.png',
+  '/Imagem5.png',
+  '/Imagem6.png',
 ];
 
 function SunIcon() {
@@ -166,14 +166,14 @@ function getStyles(dark) {
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     },
     left: {
-      background: '#EFD501',
+      background: '#FFC400',
       padding: 0,
       overflow: 'hidden',
     },
     illustration: {
       width: '100%',
       height: '100%',
-      objectFit: 'cover',
+      objectFit: 'contain',
       display: 'block',
     },
     right: {
@@ -182,8 +182,8 @@ function getStyles(dark) {
     },
     darkToggle: {
       position: 'absolute',
-      top: '20px',
-      right: '20px',
+      top: '16px',
+      right: '16px',
       background: dark ? '#2A2A2A' : '#F0F0F0',
       border: 'none',
       cursor: 'pointer',
@@ -206,28 +206,28 @@ function getStyles(dark) {
       color: text1,
       letterSpacing: '-0.03em',
       lineHeight: 1.05,
-      marginBottom: '16px',
+      marginBottom: '12px',
     },
     cardDesc: {
       color: textMuted,
       fontSize: '0.95rem',
       lineHeight: 1.6,
-      marginBottom: '28px',
+      marginBottom: '20px',
     },
     divider: {
       height: '2px',
       background: divClr,
-      marginBottom: '28px',
+      marginBottom: '20px',
     },
     turnstileWrap: {
       display: 'flex',
       justifyContent: 'flex-start',
-      marginBottom: '20px',
+      marginBottom: '16px',
       minHeight: '65px',
     },
     btnActive: {
       width: '100%',
-      padding: '16px 24px',
+      padding: '14px 24px',
       background: '#FCBF22',
       color: '#000000',
       border: '2px solid #000000',
@@ -240,7 +240,7 @@ function getStyles(dark) {
     },
     btnDisabled: {
       width: '100%',
-      padding: '16px 24px',
+      padding: '14px 24px',
       background: dark ? '#2A2A2A' : '#F2F2F2',
       color: textDim,
       border: `2px solid ${dark ? '#2A2A2A' : '#F2F2F2'}`,
@@ -254,7 +254,7 @@ function getStyles(dark) {
       color: textDim,
       fontSize: '0.75rem',
       textAlign: 'center',
-      marginTop: '14px',
+      marginTop: '12px',
     },
     errorText: {
       color: '#CC0000',
@@ -271,7 +271,7 @@ function getStyles(dark) {
     shareDivider: {
       height: '1px',
       background: divClr,
-      margin: '20px 0 4px',
+      margin: '16px 0 2px',
     },
   };
 }
