@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 // Adicionar novas páginas aqui — o dropdown atualiza automaticamente
 const PAGES = [
-  { href: '/inicio',                  label: 'Livro Amarelo'           },
+  { href: '/inicio',                  label: 'O Plano'                 },
   { href: '/renan-santos-responde',   label: 'Renan Responde'          },
   { href: '/deputados',               label: 'Deputados'               },
   { href: '/filiados',                label: 'Filiados'                },
