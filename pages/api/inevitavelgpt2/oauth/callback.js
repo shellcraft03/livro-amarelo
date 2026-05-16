@@ -95,7 +95,12 @@ export default async function handler(req, res) {
     await sql`
       INSERT INTO igpt2_automation_state (user_id, last_tweet_created_at)
       VALUES (${userId}, now())
-      ON CONFLICT (user_id) DO NOTHING
+      ON CONFLICT (user_id) DO UPDATE SET
+        last_tweet_created_at = now(),
+        next_run_at = now(),
+        locked_until = NULL,
+        locked_by = NULL,
+        updated_at = now()
     `;
 
     setUserSessionCookie(req, res, userId);
