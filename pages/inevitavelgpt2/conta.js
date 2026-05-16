@@ -162,8 +162,8 @@ export default function BotXTwitterAccount() {
               <section style={s.card}>
                 <h2 style={s.sectionTitle}>Como funciona</h2>
                 <p style={s.bodyText}>
-                  O bot responde apenas tweets que mencionem "InevitavelGPT" junto com os termos
-                  "livro amarelo" ou "renan santos". A resposta e publicada pela sua propria conta X.
+                  O bot responde apenas tweets que mencionem "InevitávelGPT" junto com os termos
+                  "Livro Amarelo" ou "Renan Santos". A resposta e publicada pela sua propria conta X.
                   Cada resposta publicada consome {formatReais(tweetCostCents)} do saldo disponivel.
                 </p>
               </section>
@@ -171,9 +171,8 @@ export default function BotXTwitterAccount() {
               <section style={s.card}>
                 <h2 style={s.sectionTitle}>Permissao da X/Twitter</h2>
                 <p style={s.bodyText}>
-                  Se voce revogar o aplicativo nas configuracoes da X/Twitter, basta reconectar a conta
-                  para liberar novamente o acesso. A reconexao atualiza os tokens da mesma conta, sem
-                  criar um novo cadastro.
+                  Se voce revogar o aplicativo nas configurações da X/Twitter, basta reconectar a conta
+                  para liberar novamente o acesso.
                 </p>
                 <div style={s.actions}>
                   <a href="/api/inevitavelgpt2/oauth/start" style={s.buttonLink}>
