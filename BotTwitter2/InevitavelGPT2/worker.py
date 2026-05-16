@@ -17,6 +17,7 @@ INTERVAL_SECONDS = int(os.environ.get('IGPT2_WORKER_INTERVAL_SECONDS', '60'))
 MIN_LOOKBACK_DAYS = int(os.environ.get('IGPT2_MIN_LOOKBACK_DAYS', '3'))
 MAX_TWEETS_PER_ACCOUNT = int(os.environ.get('IGPT2_MAX_TWEETS_PER_ACCOUNT', '30'))
 DEFAULT_MIN_TWEET_CREATED_AT = os.environ.get('DEFAULT_MIN_TWEET_CREATED_AT', '').strip()
+TRIGGER_KEYWORD = os.environ.get('INEVITAVEL_GPT_KEYWORD') or os.environ.get('IGPT2_TRIGGER_KEYWORD') or 'InevitavelGPT'
 
 LIVRO_RE = re.compile(r'livro\s+amarelo', re.IGNORECASE)
 RENAN_RE = re.compile(r'renan\s+santos', re.IGNORECASE)
@@ -26,8 +27,17 @@ def _strip_accents(text):
     return unicodedata.normalize('NFD', str(text or '')).encode('ascii', 'ignore').decode('ascii')
 
 
+TRIGGER_KEYWORD_RE = re.compile(re.escape(_strip_accents(TRIGGER_KEYWORD)), re.IGNORECASE)
+
+
 def _parse_tweet(text):
-    cleaned = re.sub(r'@\w+\s*', '', _strip_accents(text)).strip()
+    stripped = _strip_accents(text)
+    match = TRIGGER_KEYWORD_RE.search(stripped)
+    if not match:
+        return None
+
+    without_keyword = f'{stripped[:match.start()]} {stripped[match.end():]}'
+    cleaned = re.sub(r'@\w+\s*', '', without_keyword).strip()
     if LIVRO_RE.search(cleaned):
         return {'question': cleaned, 'type': 'livro'}
     if RENAN_RE.search(cleaned):

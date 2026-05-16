@@ -162,8 +162,9 @@ export default function BotXTwitterAccount() {
               <section style={s.card}>
                 <h2 style={s.sectionTitle}>Como funciona</h2>
                 <p style={s.bodyText}>
-                  O bot monitora seus tweets com os termos "livro amarelo" ou "renan santos" e responde
-                  pela sua propria conta X. Cada resposta publicada consome {formatReais(tweetCostCents)} do saldo disponivel.
+                  O bot responde apenas tweets que mencionem "InevitavelGPT" junto com os termos
+                  "livro amarelo" ou "renan santos". A resposta e publicada pela sua propria conta X.
+                  Cada resposta publicada consome {formatReais(tweetCostCents)} do saldo disponivel.
                 </p>
               </section>
 
