@@ -7,7 +7,7 @@ import { useSessionGate } from '../../hooks/useSessionGate';
 function statusLabel(status) {
   return {
     approved: 'Permitido',
-    blocked: 'Nao permitido',
+    blocked: 'Não permitido',
     pending: 'Pendente',
   }[status] || 'Pendente';
 }
@@ -75,7 +75,7 @@ export default function BotXTwitterAccount() {
         const runsData = await runsRes.json();
         setRunsState({ loading: false, runs: runsData.runs || [], error: null });
       } else {
-        setRunsState({ loading: false, runs: [], error: 'Nao foi possivel carregar o log.' });
+        setRunsState({ loading: false, runs: [], error: 'Não foi possível carregar o log.' });
       }
 
       const balanceRes = await fetch('/api/inevitavelgpt2/balance-events');
@@ -83,7 +83,7 @@ export default function BotXTwitterAccount() {
         const balanceData = await balanceRes.json();
         setBalanceState({ loading: false, events: balanceData.events || [], error: null });
       } else {
-        setBalanceState({ loading: false, events: [], error: 'Nao foi possivel carregar as movimentacoes.' });
+        setBalanceState({ loading: false, events: [], error: 'Não foi possível carregar as movimentações.' });
       }
     }
     load();
@@ -147,14 +147,14 @@ export default function BotXTwitterAccount() {
 
                 {!approved && (
                   <p style={s.notice}>
-                    Sua conta ja esta conectada. A liberacao e manual; quando permitida, o bot passara
+                    Sua conta já está conectada. A liberação é manual; quando permitida, o bot passará
                     a monitorar sua conta X.
                   </p>
                 )}
 
                 {approved && creditBalanceCents < tweetCostCents && (
                   <p style={s.notice}>
-                    Sua conta esta permitida, mas nao ha saldo suficiente para novas respostas.
+                    Sua conta está permitida, mas não há saldo suficiente para novas respostas.
                   </p>
                 )}
               </section>
@@ -163,15 +163,15 @@ export default function BotXTwitterAccount() {
                 <h2 style={s.sectionTitle}>Como funciona</h2>
                 <p style={s.bodyText}>
                   O bot responde apenas tweets que mencionem "InevitávelGPT" junto com os termos
-                  "Livro Amarelo" ou "Renan Santos". A resposta e publicada pela sua propria conta X.
-                  Cada resposta publicada consome {formatReais(tweetCostCents)} do saldo disponivel.
+                  "Livro Amarelo" ou "Renan Santos". A resposta é publicada pela sua própria conta X.
+                  Cada resposta publicada consome {formatReais(tweetCostCents)} do saldo disponível.
                 </p>
               </section>
 
               <section style={s.card}>
                 <h2 style={s.sectionTitle}>Permissao da X/Twitter</h2>
                 <p style={s.bodyText}>
-                  Se voce revogar o aplicativo nas configurações da X/Twitter, basta reconectar a conta
+                  Se você revogar o aplicativo nas configurações da X/Twitter, basta reconectar a conta
                   para liberar novamente o acesso.
                 </p>
                 <div style={s.actions}>
@@ -193,7 +193,7 @@ export default function BotXTwitterAccount() {
                 <div style={s.logsGrid}>
                   <div>
                     <h2 style={s.sectionTitle}>Log dos ultimos 10 tweets</h2>
-                    {runsState.loading && <p style={s.bodyText}>Carregando ultimas respostas...</p>}
+                    {runsState.loading && <p style={s.bodyText}>Carregando últimas respostas...</p>}
                     {runsState.error && <p style={s.bodyText}>{runsState.error}</p>}
                     {!runsState.loading && !runsState.error && runsState.runs.length === 0 && (
                       <p style={s.bodyText}>Ainda nao ha tweets processados.</p>
