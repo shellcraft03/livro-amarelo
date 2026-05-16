@@ -127,19 +127,18 @@ livro-amarelo/
 │       ├── Inter-Bold.ttf
 │       ├── Inter-Italic.ttf
 │       └── Inter-BoldItalic.ttf
-├── BotTwitter2/                     # Multi-user Python worker — Bot X/Twitter (Railway)
-│   ├── Procfile                     # worker: python main.py
-│   ├── runtime.txt                  # python-3.11
-│   ├── requirements.txt
-│   ├── main.py                      # worker main loop
-│   ├── run-local-worker.bat          # loads local .env and runs the worker on Windows
-│   └── InevitavelGPT2/
-│       ├── api.py                   # calls /api/bot/answer and /api/bot/image
-│       ├── crypto.py                # OAuth token encryption
-│       ├── db.py                    # Neon connection
-│       ├── worker.py                # multi-user orchestration
-│       └── x_api.py                 # token refresh, X reads, media upload and reply
-└── BotTwitter/                      # Legacy single-profile worker; kept temporarily during transition
+└── BotTwitter2/                     # Multi-user Python worker — Bot X/Twitter (Railway)
+    ├── Procfile                     # worker: python main.py
+    ├── runtime.txt                  # python-3.11
+    ├── requirements.txt
+    ├── main.py                      # worker main loop
+    ├── run-local-worker.bat          # loads local .env and runs the worker on Windows
+    └── InevitavelGPT2/
+        ├── api.py                   # calls /api/bot/answer and /api/bot/image
+        ├── crypto.py                # OAuth token encryption
+        ├── db.py                    # Neon connection
+        ├── worker.py                # multi-user orchestration
+        └── x_api.py                 # token refresh, X reads, media upload and reply
 ```
 
 ---
@@ -336,8 +335,6 @@ User
 ## Multi-user Bot X/Twitter
 
 The `BotTwitter2/` directory contains the **Python worker** deployed on **Railway** for operating Bot X/Twitter with authenticated user accounts. The goal is to let any approved user connect their own X/Twitter account and publish automated replies from that account, respecting balance, access status, and OAuth permissions.
-
-The old `BotTwitter/` directory remains in the repository only as temporary legacy code during volunteer testing. It is no longer the main bot reference in this documentation.
 
 The new flow uses X/Twitter OAuth, encrypted tokens in Neon, and per-user access control. The worker reads recent tweets from the connected account and only considers posts that mention the `InevitavelGPT` keyword together with "livro amarelo" or "renan santos". It then generates the RAG answer, creates the image, and publishes the reply from the authenticated account.
 
