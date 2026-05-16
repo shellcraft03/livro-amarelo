@@ -7,6 +7,7 @@ const PAGES = [
   { href: '/renan-santos-responde',   label: 'Renan Responde'          },
   { href: '/deputados',               label: 'Deputados'               },
   { href: '/filiados',                label: 'Filiados'                },
+  { href: '/inevitavelgpt2',          label: 'Bot X/Twitter'           },
   { href: '/sobre',                   label: 'Sobre'                   },
   { href: '/privacidade',             label: 'Privacidade'             },
 ];

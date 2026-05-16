@@ -198,6 +198,22 @@ BOT_API_SECRET=...
 
 > **Neon:** the `videos` table is created/updated by `migrate_videos.mjs`. Run it once before indexing any interviews.
 
+### Bot X/Twitter admin panel
+
+The Bot X/Twitter admin panel was prepared as a separate application, intended for local execution and maintenance in a private repository. For security reasons, this public repository does not contain an admin page, `/api/.../admin` routes, admin authentication, an admin secret, or the panel files.
+
+That external panel uses the same Neon database as this project to operate Bot X/Twitter access and billing. The implemented logic works with the `igpt2_users`, `igpt2_access_grants`, `igpt2_balance_events`, `igpt2_global_settings`, `igpt2_automation_runs`, `igpt2_automation_state`, and `igpt2_x_oauth_tokens` tables.
+
+External panel responsibilities:
+
+- search users connected to Bot X/Twitter;
+- change access status (`pending`, `approved`, `blocked`);
+- add or remove balance in cents, recording events in `igpt2_balance_events`;
+- configure the global response cost in `igpt2_global_settings` (`tweet_cost_cents`);
+- inspect the latest operational logs persisted by the worker.
+
+The public site only consumes this data: the user page shows balance, response cost, and recent history; the `BotTwitter2/` worker enforces access status, checks balance, and debits the configured database cost for each published reply.
+
 ### 3. Index the Livro Amarelo
 
 ```bash
