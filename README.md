@@ -127,19 +127,18 @@ livro-amarelo/
 │       ├── Inter-Bold.ttf
 │       ├── Inter-Italic.ttf
 │       └── Inter-BoldItalic.ttf
-├── BotTwitter2/                     # Worker Python multiusuário — Bot X/Twitter (Railway)
-│   ├── Procfile                     # worker: python main.py
-│   ├── runtime.txt                  # python-3.11
-│   ├── requirements.txt
-│   ├── main.py                      # loop principal do worker
-│   ├── run-local-worker.bat          # carrega .env local e executa o worker no Windows
-│   └── InevitavelGPT2/
-│       ├── api.py                   # chama /api/bot/answer e /api/bot/image
-│       ├── crypto.py                # criptografia de tokens OAuth
-│       ├── db.py                    # conexão Neon
-│       ├── worker.py                # orquestração multiusuário
-│       └── x_api.py                 # refresh token, leitura do X, upload e reply
-└── BotTwitter/                      # Worker legado do perfil único; mantido temporariamente para transição
+└── BotTwitter2/                     # Worker Python multiusuário — Bot X/Twitter (Railway)
+    ├── Procfile                     # worker: python main.py
+    ├── runtime.txt                  # python-3.11
+    ├── requirements.txt
+    ├── main.py                      # loop principal do worker
+    ├── run-local-worker.bat          # carrega .env local e executa o worker no Windows
+    └── InevitavelGPT2/
+        ├── api.py                   # chama /api/bot/answer e /api/bot/image
+        ├── crypto.py                # criptografia de tokens OAuth
+        ├── db.py                    # conexão Neon
+        ├── worker.py                # orquestração multiusuário
+        └── x_api.py                 # refresh token, leitura do X, upload e reply
 ```
 
 ---
@@ -336,8 +335,6 @@ Usuário
 ## Bot X/Twitter multiusuário
 
 O diretório `BotTwitter2/` contém o **worker Python** implantado no **Railway** para operar o Bot X/Twitter com contas de usuários autenticados. O objetivo do projeto é permitir que qualquer usuário autorizado conecte sua própria conta X/Twitter e publique respostas automáticas pela própria conta, respeitando saldo, status de acesso e permissões OAuth.
-
-O diretório `BotTwitter/` antigo continua no repositório apenas como legado temporário durante a fase de testes com voluntários. Ele não é mais a referência principal da documentação do bot.
 
 O fluxo novo usa OAuth da X/Twitter, tokens criptografados no Neon e controle de acesso por usuário. O worker busca tweets recentes da conta conectada e só considera publicações que mencionem a palavra-chave `InevitavelGPT` junto com "livro amarelo" ou "renan santos". Depois gera a resposta via RAG, cria a imagem e publica o reply pela conta autenticada.
 
