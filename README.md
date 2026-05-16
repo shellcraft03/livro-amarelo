@@ -339,7 +339,7 @@ O diretório `BotTwitter2/` contém o **worker Python** implantado no **Railway*
 
 O diretório `BotTwitter/` antigo continua no repositório apenas como legado temporário durante a fase de testes com voluntários. Ele não é mais a referência principal da documentação do bot.
 
-O fluxo novo usa OAuth da X/Twitter, tokens criptografados no Neon e controle de acesso por usuário. O worker busca tweets recentes da conta conectada, aplica os mesmos filtros do InevitavelGPT existente, gera a resposta via RAG, cria a imagem e publica o reply pela conta autenticada.
+O fluxo novo usa OAuth da X/Twitter, tokens criptografados no Neon e controle de acesso por usuário. O worker busca tweets recentes da conta conectada e só considera publicações que mencionem a palavra-chave `InevitavelGPT` junto com "livro amarelo" ou "renan santos". Depois gera a resposta via RAG, cria a imagem e publica o reply pela conta autenticada.
 
 Para teste local no Windows, configure `BotTwitter2/InevitavelGPT2/.env` e execute `BotTwitter2/run-local-worker.bat`. O script também pode carregar variáveis do `.env.local` da raiz quando necessário.
 
@@ -361,7 +361,7 @@ Worker BotTwitter2 Railway/local (main.py — loop periódico)
   │
   ▼
 worker.py
-  │ aplica filtros elegíveis do InevitavelGPT
+  │ exige palavra-chave InevitavelGPT + tema elegível
   │ respeita DEFAULT_MIN_TWEET_CREATED_AT, cursor por usuário e lookback máximo
   │ extrai pergunta + tipo (livro | entrevistas)
   │
@@ -397,6 +397,7 @@ cursor por usuário atualizado em igpt2_automation_state
 | `X_CLIENT_SECRET` | Client Secret do app X/Twitter OAuth 2.0, quando aplicável |
 | `BOT_API_URL` | URL de `/api/bot/answer` na Vercel ou localmente (ex.: `https://www.inevitavelgpt.com/api/bot/answer`) |
 | `BOT_API_SECRET` | Mesmo valor de `BOT_API_SECRET` configurado na Vercel |
+| `INEVITAVEL_GPT_KEYWORD` | Palavra-chave obrigatória no tweet; padrão `InevitavelGPT` se ausente |
 | `DEFAULT_MIN_TWEET_CREATED_AT` | Timestamp mínimo global em UTC/RFC3339 para não processar tweets antigos |
 | `IGPT2_WORKER_INTERVAL_SECONDS` | Intervalo opcional em segundos; padrão local `60`, Railway `300` |
 | `IGPT2_LOCK_SECONDS` | Tempo de lock por conta; padrão `300` |

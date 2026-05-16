@@ -339,7 +339,7 @@ The `BotTwitter2/` directory contains the **Python worker** deployed on **Railwa
 
 The old `BotTwitter/` directory remains in the repository only as temporary legacy code during volunteer testing. It is no longer the main bot reference in this documentation.
 
-The new flow uses X/Twitter OAuth, encrypted tokens in Neon, and per-user access control. The worker reads recent tweets from the connected account, applies the same filters as the existing InevitavelGPT flow, generates the RAG answer, creates the image, and publishes the reply from the authenticated account.
+The new flow uses X/Twitter OAuth, encrypted tokens in Neon, and per-user access control. The worker reads recent tweets from the connected account and only considers posts that mention the `InevitavelGPT` keyword together with "livro amarelo" or "renan santos". It then generates the RAG answer, creates the image, and publishes the reply from the authenticated account.
 
 For local testing on Windows, configure `BotTwitter2/InevitavelGPT2/.env` and run `BotTwitter2/run-local-worker.bat`. The script can also load variables from the root `.env.local` when needed.
 
@@ -361,7 +361,7 @@ BotTwitter2 Railway/local worker (main.py — periodic loop)
   │
   ▼
 worker.py
-  │ applies eligible InevitavelGPT filters
+  │ requires the InevitavelGPT keyword + eligible topic
   │ respects DEFAULT_MIN_TWEET_CREATED_AT, per-user cursor, and max lookback
   │ extracts question + type (livro | entrevistas)
   │
@@ -397,6 +397,7 @@ per-user cursor updated in igpt2_automation_state
 | `X_CLIENT_SECRET` | X/Twitter OAuth 2.0 Client Secret, when applicable |
 | `BOT_API_URL` | Full URL of `/api/bot/answer` on Vercel or locally (e.g. `https://www.inevitavelgpt.com/api/bot/answer`) |
 | `BOT_API_SECRET` | Same value as `BOT_API_SECRET` set on Vercel |
+| `INEVITAVEL_GPT_KEYWORD` | Required keyword in the tweet; defaults to `InevitavelGPT` if missing |
 | `DEFAULT_MIN_TWEET_CREATED_AT` | Global minimum UTC/RFC3339 timestamp to avoid processing old tweets |
 | `IGPT2_WORKER_INTERVAL_SECONDS` | Optional interval in seconds; defaults: local `60`, Railway `300` |
 | `IGPT2_LOCK_SECONDS` | Per-account lock duration; default `300` |
