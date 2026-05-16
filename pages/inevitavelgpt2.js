@@ -51,14 +51,14 @@ export default function InevitavelGpt2Entry() {
             {checkingAccount ? (
               <>
                 <h1 style={s.title}>Carregando conta.</h1>
-                <p style={s.copy}>Verificando se sua conta X ja esta conectada.</p>
+                <p style={s.copy}>Verificando se sua conta X já está conectada.</p>
               </>
             ) : (
               <>
                 <h1 style={s.title}>Conecte sua conta X.</h1>
                 <p style={s.copy}>
-                  Esta area usa a mesma verificacao de sessao do site. Depois de conectar a conta X,
-                  seu acesso entra em analise manual antes da automacao ser liberada.
+                  Esta área usa a mesma verificação de sessão do site. Depois de conectar a conta X,
+                  seu acesso entra em análise manual antes da automação ser liberada.
                 </p>
 
                 <a href="/api/inevitavelgpt2/oauth/start" style={s.button}>
@@ -74,7 +74,7 @@ export default function InevitavelGpt2Entry() {
             )}
 
             <p style={s.note}>
-              O OAuth solicita acesso para ler tweets, publicar replies, enviar midia e manter a conexao ativa.
+              O OAuth solicita acesso para ler tweets, publicar replies, enviar mídia e manter a conexão ativa.
               Voce pode revogar essa permissao a qualquer momento em{' '}
               <a
                 href="https://x.com/settings/connected_apps"
@@ -94,16 +94,16 @@ export default function InevitavelGpt2Entry() {
 
 function errorMessage(error) {
   return {
-    missing_code: 'Nao foi possivel concluir o login: retorno da X/Twitter sem codigo de autorizacao.',
-    invalid_state: 'Nao foi possivel concluir o login: sessao OAuth expirada ou invalida. Tente conectar novamente.',
-    token_exchange_failed: 'Nao foi possivel concluir o login: falha ao trocar o codigo por tokens. Verifique Client ID, Client Secret, callback e scopes no portal da X/Twitter.',
-    x_user_lookup_failed: 'Nao foi possivel concluir o login: falha ao buscar os dados da conta X/Twitter autorizada.',
-    token_encryption_key_invalid: 'Nao foi possivel concluir o login: OAUTH_TOKEN_ENCRYPTION_KEY ausente ou invalida.',
-    database_not_configured: 'Nao foi possivel concluir o login: DATABASE_URL nao configurada.',
-    database_schema_missing: 'Nao foi possivel concluir o login: tabelas do Bot X/Twitter ainda nao foram criadas no banco.',
-    database_failed: 'Nao foi possivel concluir o login: falha ao gravar os dados no banco.',
-    callback_failed: 'Nao foi possivel concluir o login: erro inesperado no callback.',
-  }[String(error)] || `Nao foi possivel concluir o login: ${String(error)}`;
+    missing_code: 'Não foi possível concluir o login: retorno da X/Twitter sem código de autorização.',
+    invalid_state: 'Não foi possível concluir o login: sessão OAuth expirada ou inválida. Tente conectar novamente.',
+    token_exchange_failed: 'Não foi possível concluir o login: falha ao trocar o código por tokens. Verifique Client ID, Client Secret, callback e scopes no portal da X/Twitter.',
+    x_user_lookup_failed: 'Não foi possível concluir o login: falha ao buscar os dados da conta X/Twitter autorizada.',
+    token_encryption_key_invalid: 'Não foi possível concluir o login: OAUTH_TOKEN_ENCRYPTION_KEY ausente ou inválida.',
+    database_not_configured: 'Não foi possível concluir o login: DATABASE_URL não configurada.',
+    database_schema_missing: 'Não foi possível concluir o login: tabelas do Bot X/Twitter ainda não foram criadas no banco.',
+    database_failed: 'Não foi possível concluir o login: falha ao gravar os dados no banco.',
+    callback_failed: 'Não foi possível concluir o login: erro inesperado no callback.',
+  }[String(error)] || `Não foi possível concluir o login: ${String(error)}`;
 }
 
 function getStyles(dark) {
