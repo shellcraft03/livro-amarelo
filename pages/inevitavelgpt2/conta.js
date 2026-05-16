@@ -191,61 +191,65 @@ export default function BotXTwitterAccount() {
               </section>
 
               <section style={s.card}>
-                <h2 style={s.sectionTitle}>Log dos ultimos 10 tweets</h2>
-                {runsState.loading && <p style={s.bodyText}>Carregando ultimas respostas...</p>}
-                {runsState.error && <p style={s.bodyText}>{runsState.error}</p>}
-                {!runsState.loading && !runsState.error && runsState.runs.length === 0 && (
-                  <p style={s.bodyText}>Ainda nao ha tweets processados.</p>
-                )}
-                {!runsState.loading && runsState.runs.length > 0 && (
-                  <div style={s.logList}>
-                    {runsState.runs.map(run => (
-                      <div key={run.id} style={s.logItem}>
-                        <div style={s.logHeader}>
-                          <span style={run.status === 'published' ? s.statusOk : run.status === 'failed' ? s.statusError : s.statusMuted}>
-                            {statusText(run.status)}
-                          </span>
-                          <span style={s.logDate}>{formatDate(run.created_at)}</span>
-                        </div>
-                        <p style={s.logText}>
-                          Tweet capturado{run.source_type ? ` (${run.source_type})` : ''}
-                          {run.captured_tweet_created_at ? ` em ${formatDate(run.captured_tweet_created_at)}` : ''}
-                        </p>
-                        {run.balance_delta_cents !== null && run.balance_delta_cents !== undefined && (
-                          <p style={s.logDelta}>{formatBalanceDelta(run.balance_delta_cents)}</p>
-                        )}
-                        {run.api_result && <p style={s.logMeta}>{run.api_result}</p>}
-                        {run.error_message && <p style={s.logError}>{run.error_message}</p>}
+                <div style={s.logsGrid}>
+                  <div>
+                    <h2 style={s.sectionTitle}>Log dos ultimos 10 tweets</h2>
+                    {runsState.loading && <p style={s.bodyText}>Carregando ultimas respostas...</p>}
+                    {runsState.error && <p style={s.bodyText}>{runsState.error}</p>}
+                    {!runsState.loading && !runsState.error && runsState.runs.length === 0 && (
+                      <p style={s.bodyText}>Ainda nao ha tweets processados.</p>
+                    )}
+                    {!runsState.loading && runsState.runs.length > 0 && (
+                      <div style={s.logList}>
+                        {runsState.runs.map(run => (
+                          <div key={run.id} style={s.logItem}>
+                            <div style={s.logHeader}>
+                              <span style={run.status === 'published' ? s.statusOk : run.status === 'failed' ? s.statusError : s.statusMuted}>
+                                {statusText(run.status)}
+                              </span>
+                              <span style={s.logDate}>{formatDate(run.created_at)}</span>
+                            </div>
+                            <p style={s.logText}>
+                              Tweet capturado{run.source_type ? ` (${run.source_type})` : ''}
+                              {run.captured_tweet_created_at ? ` em ${formatDate(run.captured_tweet_created_at)}` : ''}
+                            </p>
+                            {run.balance_delta_cents !== null && run.balance_delta_cents !== undefined && (
+                              <p style={s.logDelta}>{formatBalanceDelta(run.balance_delta_cents)}</p>
+                            )}
+                            {run.api_result && <p style={s.logMeta}>{run.api_result}</p>}
+                            {run.error_message && <p style={s.logError}>{run.error_message}</p>}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </section>
 
-              <section style={s.card}>
-                <h2 style={s.sectionTitle}>Movimentacoes de saldo</h2>
-                {balanceState.loading && <p style={s.bodyText}>Carregando movimentacoes...</p>}
-                {balanceState.error && <p style={s.bodyText}>{balanceState.error}</p>}
-                {!balanceState.loading && !balanceState.error && balanceState.events.length === 0 && (
-                  <p style={s.bodyText}>Ainda nao ha movimentacoes de saldo.</p>
-                )}
-                {!balanceState.loading && balanceState.events.length > 0 && (
-                  <div style={s.logList}>
-                    {balanceState.events.map(event => (
-                      <div key={event.id} style={s.logItem}>
-                        <div style={s.logHeader}>
-                          <span style={event.delta_cents > 0 ? s.statusOk : event.delta_cents < 0 ? s.statusError : s.statusMuted}>
-                            {event.delta_cents > 0 ? 'Credito' : event.delta_cents < 0 ? 'Debito' : 'Saldo inalterado'}
-                          </span>
-                          <span style={s.logDate}>{formatDate(event.created_at)}</span>
-                        </div>
-                        <p style={s.logDelta}>{formatBalanceDelta(event.delta_cents)}</p>
-                        {event.note && <p style={s.logText}>{event.note}</p>}
-                        <p style={s.logMeta}>{event.source === 'bot' ? 'Automacao' : 'Admin'}</p>
+                  <div>
+                    <h2 style={s.sectionTitle}>Movimentações de saldo</h2>
+                    {balanceState.loading && <p style={s.bodyText}>Carregando movimentacoes...</p>}
+                    {balanceState.error && <p style={s.bodyText}>{balanceState.error}</p>}
+                    {!balanceState.loading && !balanceState.error && balanceState.events.length === 0 && (
+                      <p style={s.bodyText}>Ainda nao ha movimentacoes de saldo.</p>
+                    )}
+                    {!balanceState.loading && balanceState.events.length > 0 && (
+                      <div style={s.logList}>
+                        {balanceState.events.map(event => (
+                          <div key={event.id} style={s.logItem}>
+                            <div style={s.logHeader}>
+                              <span style={event.delta_cents > 0 ? s.statusOk : event.delta_cents < 0 ? s.statusError : s.statusMuted}>
+                                {event.delta_cents > 0 ? 'Credito' : event.delta_cents < 0 ? 'Debito' : 'Saldo inalterado'}
+                              </span>
+                              <span style={s.logDate}>{formatDate(event.created_at)}</span>
+                            </div>
+                            <p style={s.logDelta}>{formatBalanceDelta(event.delta_cents)}</p>
+                            {event.note && <p style={s.logText}>{event.note}</p>}
+                            <p style={s.logMeta}>{event.source === 'bot' ? 'Automacao' : 'Admin'}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
+                </div>
               </section>
             </>
           )}
@@ -377,6 +381,11 @@ function getStyles(dark) {
       padding: '0 14px',
       fontWeight: 900,
       textDecoration: 'none',
+    },
+    logsGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+      gap: 16,
     },
     logList: {
       display: 'flex',
