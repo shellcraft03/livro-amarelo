@@ -62,7 +62,7 @@ Esta aplicação web permite explorar o conteúdo do Livro Amarelo e as entrevis
 | PDF parsing | pdf-parse |
 | Automação de dados | GitHub Actions (cron semanal + disparo manual) |
 | Geração de imagens (bot) | canvas (node-canvas) · Inter TTF bundled em `public/fonts/` |
-| Bot Twitter | Python 3.11 · Railway (worker) · Twitter API v2 |
+| Bot X/Twitter | Python 3.11 · Railway (worker multiusuário) · X API v2 |
 
 ---
 
@@ -127,15 +127,19 @@ livro-amarelo/
 │       ├── Inter-Bold.ttf
 │       ├── Inter-Italic.ttf
 │       └── Inter-BoldItalic.ttf
-└── BotTwitter/                      # Worker Python — bot @Inevitavel_Bot (Railway)
-    ├── Procfile                     # worker: python main.py
-    ├── runtime.txt                  # python-3.11
-    ├── requirements.txt
-    ├── main.py                      # loop principal do worker
-    ├── run-local-worker.bat          # carrega .env local e executa o worker no Windows
-    └── InevitavelGPT/
-        ├── bot.py                   # busca tweets, parseia pergunta, aciona API, posta reply
-        └── ImageGenerator.py        # chama POST /api/bot/image na Vercel → retorna JPEG
+├── BotTwitter2/                     # Worker Python multiusuário — Bot X/Twitter (Railway)
+│   ├── Procfile                     # worker: python main.py
+│   ├── runtime.txt                  # python-3.11
+│   ├── requirements.txt
+│   ├── main.py                      # loop principal do worker
+│   ├── run-local-worker.bat          # carrega .env local e executa o worker no Windows
+│   └── InevitavelGPT2/
+│       ├── api.py                   # chama /api/bot/answer e /api/bot/image
+│       ├── crypto.py                # criptografia de tokens OAuth
+│       ├── db.py                    # conexão Neon
+│       ├── worker.py                # orquestração multiusuário
+│       └── x_api.py                 # refresh token, leitura do X, upload e reply
+└── BotTwitter/                      # Worker legado do perfil único; mantido temporariamente para transição
 ```
 
 ---
@@ -329,29 +333,37 @@ Usuário
 
 ---
 
-## Bot Twitter — @Inevitavel_Bot
+## Bot X/Twitter multiusuário
 
-O diretório `BotTwitter/` contém um **worker Python** implantado no **Railway** que monitora o perfil `@Inevitavel_Bot` periodicamente. O intervalo padrão é 1 minuto localmente e 5 minutos no Railway. Sempre que o próprio perfil postar um tweet contendo a keyword `INEVITAVEL_GPT_KEYWORD` junto com "livro amarelo" ou "renan santos", o bot gera uma resposta via RAG e responde ao tweet com uma imagem formatada. O filtro ignora diferenças entre maiúsculas/minúsculas e acentos.
+O diretório `BotTwitter2/` contém o **worker Python** implantado no **Railway** para operar o Bot X/Twitter com contas de usuários autenticados. O objetivo do projeto é permitir que qualquer usuário autorizado conecte sua própria conta X/Twitter e publique respostas automáticas pela própria conta, respeitando saldo, status de acesso e permissões OAuth.
 
-O worker persiste o estado em `STATE_DIR` usando `last_tweet_created_at.txt`, `processed_ids.json` e `retry_tweets.json`. Falhas de resposta entram na fila de retry e só saem dela depois de um reply bem-sucedido. O cursor de timeline usa `start_time` com o timestamp do tweet mais recente já visto pelo worker, respeitando `DEFAULT_MIN_TWEET_CREATED_AT` como piso opcional e nunca buscando antes dos últimos 3 dias; a deduplicação continua sendo feita por `processed_ids.json`.
+O diretório `BotTwitter/` antigo continua no repositório apenas como legado temporário durante a fase de testes com voluntários. Ele não é mais a referência principal da documentação do bot.
 
-Para teste local no Windows, configure `BotTwitter/InevitavelGPT/.env` e execute `BotTwitter/run-local-worker.bat`. O script carrega o `.env`, define `STATE_DIR` para `BotTwitter/.local-state/` e inicia `python main.py`.
+O fluxo novo usa OAuth da X/Twitter, tokens criptografados no Neon e controle de acesso por usuário. O worker busca tweets recentes da conta conectada, aplica os mesmos filtros do InevitavelGPT existente, gera a resposta via RAG, cria a imagem e publica o reply pela conta autenticada.
+
+Para teste local no Windows, configure `BotTwitter2/InevitavelGPT2/.env` e execute `BotTwitter2/run-local-worker.bat`. O script também pode carregar variáveis do `.env.local` da raiz quando necessário.
 
 ### Como funciona
 
 ```
-@Inevitavel_Bot posta tweet com INEVITAVEL_GPT_KEYWORD + ("livro amarelo" ou "renan santos")
+Usuário conecta a própria conta X/Twitter em /inevitavelgpt2
   │
   ▼
-Worker Railway/local (main.py — loop periódico)
-  │ GET /2/users/by/username/:username → resolve o user id
-  │ GET /2/users/:id/tweets — lê a timeline do próprio perfil
+OAuth callback salva usuário, tokens criptografados, status e estado no Neon
+  │
+  ▼
+Worker BotTwitter2 Railway/local (main.py — loop periódico)
+  │ seleciona contas aprovadas com saldo suficiente
+  │ aplica lock por conta com FOR UPDATE SKIP LOCKED
+  │ lê tweets recentes da conta conectada
   │
   ├─ Nenhum tweet novo → aguarda próximo ciclo
   │
   ▼
-bot.py — buscar_e_responder()
-  │ _parse_tweet(): exige keyword + tema, remove keyword e @mentions → extrai pergunta + tipo (livro | entrevistas)
+worker.py
+  │ aplica filtros elegíveis do InevitavelGPT
+  │ respeita DEFAULT_MIN_TWEET_CREATED_AT, cursor por usuário e lookback máximo
+  │ extrai pergunta + tipo (livro | entrevistas)
   │
   ▼
 POST /api/bot/answer  (Vercel · X-Bot-Secret)
@@ -363,34 +375,34 @@ POST /api/bot/image   (Vercel · X-Bot-Secret)
 POST /1.1/media/upload.json → POST /2/tweets (reply ao tweet original)
   │
   ▼
-tweet_id registrado em processed_ids.json (STATE_DIR)
-created_at do tweet respondido registrado em last_tweet_created_at.txt (STATE_DIR)
-created_at de tweet sem gatilho também avança o cursor local
-falhas entram em retry_tweets.json (STATE_DIR) → serão reprocessadas no próximo ciclo
+saldo debitado em igpt2_access_grants
+evento registrado em igpt2_balance_events
+execução resumida registrada em igpt2_automation_runs
+cursor por usuário atualizado em igpt2_automation_state
 ```
 
 ### Deploy no Railway
 
-1. Conecte o repositório ao Railway e aponte o **root directory** para `BotTwitter/`.
-2. Monte um volume em `/data` e defina `STATE_DIR=/data` para persistir estado entre restarts.
+1. Conecte o repositório ao Railway e aponte o **root directory** para `BotTwitter2/`.
+2. Não é necessário volume para estado: o `BotTwitter2/` persiste estado no Neon.
 3. Configure as variáveis de ambiente abaixo no painel do Railway.
 
 ### Variáveis de ambiente — Railway
 
 | Variável | Descrição |
 |---|---|
-| `BEARER_TOKEN` | Twitter Bearer Token (leitura de tweets) |
-| `CONSUMER_KEY` | Twitter OAuth 1.0a Consumer Key |
-| `CONSUMER_SECRET` | Twitter OAuth 1.0a Consumer Secret |
-| `ACESS_TOKEN` | Twitter OAuth 1.0a Access Token |
-| `ACESS_TOKEN_SECRET` | Twitter OAuth 1.0a Access Token Secret |
-| `BOT_API_URL` | URL de `/api/bot/answer` na Vercel (ex.: `https://www.inevitavelgpt.com/api/bot/answer`) |
+| `DATABASE_URL` | URL do Neon usado pelo site e pelo worker |
+| `OAUTH_TOKEN_ENCRYPTION_KEY` | Chave de criptografia dos tokens OAuth; deve ser a mesma usada no app web |
+| `X_CLIENT_ID` | Client ID do app X/Twitter OAuth 2.0 |
+| `X_CLIENT_SECRET` | Client Secret do app X/Twitter OAuth 2.0, quando aplicável |
+| `BOT_API_URL` | URL de `/api/bot/answer` na Vercel ou localmente (ex.: `https://www.inevitavelgpt.com/api/bot/answer`) |
 | `BOT_API_SECRET` | Mesmo valor de `BOT_API_SECRET` configurado na Vercel |
-| `INEVITAVEL_BOT_HANDLE` | Handle sem `@` (ex.: `Inevitavel_Bot`) |
-| `INEVITAVEL_GPT_KEYWORD` | Palavra-chave de acionamento digitada no tweet (ex.: `InevitavelGPT`); aceita variações de maiúsculas/minúsculas e acentos |
-| `STATE_DIR` | Caminho do volume de persistência (ex.: `/data`) |
-| `DEFAULT_MIN_TWEET_CREATED_AT` | Timestamp mínimo opcional em UTC/RFC3339 para não processar tweets antigos (ex.: `2026-05-13T22:30:00Z`); o worker também limita a busca aos últimos 3 dias |
-| `BOT_INTERVAL_SECONDS` | Intervalo opcional em segundos para sobrescrever o padrão: local `60`, Railway `300` |
+| `DEFAULT_MIN_TWEET_CREATED_AT` | Timestamp mínimo global em UTC/RFC3339 para não processar tweets antigos |
+| `IGPT2_WORKER_INTERVAL_SECONDS` | Intervalo opcional em segundos; padrão local `60`, Railway `300` |
+| `IGPT2_LOCK_SECONDS` | Tempo de lock por conta; padrão `300` |
+| `IGPT2_WORKER_BATCH_SIZE` | Quantidade de contas adquiridas por ciclo; padrão `5` |
+| `IGPT2_MIN_LOOKBACK_DAYS` | Janela máxima de busca para trás; padrão `3` |
+| `IGPT2_MAX_TWEETS_PER_ACCOUNT` | Máximo de tweets lidos por conta em um ciclo; padrão `30` |
 
 > `BOT_API_SECRET` também deve estar definido nas variáveis de ambiente da **Vercel** — ele protege tanto `/api/bot/answer` quanto `/api/bot/image`.
 
